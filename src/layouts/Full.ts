@@ -45,27 +45,36 @@ export class Full implements Layout {
     layoutA.adjustRect(rectCombineV(layoutA.rect, layoutB.rect));
   };
 
-  // TODO: STOP RESIZING OVER THE SCREEN EDGES
-  resizeLayout = (layoutA: Layout, edgeA: Edge) => {
+  // @param layoutA - The layout in which a window triggered the resize event
+  // @param edge    - "Raw" resize edge from the resize event (even if it goes way over bounds)
+  resizeLayout = (layoutA: Layout, edge: Edge) => {
+    // Actual resize edge used to resize layoutA (sides have values only if another layer was resized towards the side)
+    const edgeA = new Edge();
+
     this.layouts.forEach((layoutB) => {
       if (layoutB.id === layoutA.id) return;
 
+      // Overlap edge between layoutB and layoutA
       const edgeB = new Edge();
 
       if (layoutB.rect.top === layoutA.rect.bottom) {
-        edgeB.top += edgeA.bottom;
+        edgeA.bottom = edge.bottom;
+        edgeB.top += edge.bottom;
       }
 
       if (layoutB.rect.left === layoutA.rect.right) {
-        edgeB.left += edgeA.right;
+        edgeA.right = edge.right;
+        edgeB.left += edge.right;
       }
 
       if (layoutB.rect.bottom === layoutA.rect.top) {
-        edgeB.bottom += edgeA.top;
+        edgeA.top = edge.top;
+        edgeB.bottom += edge.top;
       }
 
       if (layoutB.rect.right === layoutA.rect.left) {
-        edgeB.right += edgeA.left;
+        edgeA.left = edge.left;
+        edgeB.right += edge.left;
       }
 
       const rectB = rectAdd(layoutB.rect, edgeB);

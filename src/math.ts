@@ -17,6 +17,21 @@ export class Edge implements QEdge {
   }
 }
 
+export const edgeClone = (edge: QEdge): QEdge => {
+  const { top, left, bottom, right } = edge;
+  return { top, left, bottom, right };
+};
+
+export const edgeAdd = (edgeA: QEdge, edgeB: QEdge): QEdge => {
+  const newEdge = edgeClone(edgeA);
+
+  Object.keys(newEdge).forEach((key) => {
+    newEdge[key] += edgeB[key];
+  });
+
+  return newEdge;
+};
+
 export const rectClone = (rect: QRect): QRect => {
   const { x, y, width, height, left, top, bottom, right } = rect;
   return { x, y, width, height, left, top, bottom, right };

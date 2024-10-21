@@ -340,23 +340,31 @@ var Full = /** @class */ (function () {
             _this.limit -= layoutB.limit;
             layoutA.adjustRect(rectCombineV(layoutA.rect, layoutB.rect));
         };
-        // TODO: STOP RESIZING OVER THE SCREEN EDGES
-        this.resizeLayout = function (layoutA, edgeA) {
+        // @param layoutA - The layout in which a window triggered the resize event
+        // @param edge    - "Raw" resize edge from the resize event (even if it goes way over bounds)
+        this.resizeLayout = function (layoutA, edge) {
+            // Actual resize edge used to resize layoutA (sides have values only if another layer was resized towards the side)
+            var edgeA = new Edge();
             _this.layouts.forEach(function (layoutB) {
                 if (layoutB.id === layoutA.id)
                     return;
+                // Overlap edge between layoutB and layoutA
                 var edgeB = new Edge();
                 if (layoutB.rect.top === layoutA.rect.bottom) {
-                    edgeB.top += edgeA.bottom;
+                    edgeA.bottom = edge.bottom;
+                    edgeB.top += edge.bottom;
                 }
                 if (layoutB.rect.left === layoutA.rect.right) {
-                    edgeB.left += edgeA.right;
+                    edgeA.right = edge.right;
+                    edgeB.left += edge.right;
                 }
                 if (layoutB.rect.bottom === layoutA.rect.top) {
-                    edgeB.bottom += edgeA.top;
+                    edgeA.top = edge.top;
+                    edgeB.bottom += edge.top;
                 }
                 if (layoutB.rect.right === layoutA.rect.left) {
-                    edgeB.right += edgeA.left;
+                    edgeA.left = edge.left;
+                    edgeB.right += edge.left;
                 }
                 var rectB = rectAdd(layoutB.rect, edgeB);
                 layoutB.adjustRect(rectB);
