@@ -300,10 +300,10 @@ var Columns = /** @class */ (function () {
                 edge.bottom = oldRect.bottom - newRect.bottom;
             }
             if (index < 0 && newRect.width !== oldRect.width) {
-                edge.left = oldRect.width - newRect.width;
+                edge.left = newRect.width - oldRect.width;
             }
             if (index === _this.separators.length - 1 && newRect.width !== oldRect.width) {
-                edge.left = oldRect.width - newRect.width;
+                edge.right = oldRect.width - newRect.width;
             }
             return edge;
         };
