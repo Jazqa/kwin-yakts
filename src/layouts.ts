@@ -21,4 +21,4 @@ import { Rows } from "./layouts/Rows";
  *
  */
 
-export const Layouts = [Full, Full, Full, Full, Full];
+export const Layouts = [Full, Full, Full, Full, Full, Full];

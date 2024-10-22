@@ -10,10 +10,6 @@ export class WM {
   desktops: Array<Desktop> = [];
   windows: Array<Window> = [];
 
-  isTiling() {
-    return this.tiling;
-  }
-
   constructor() {
     workspace.desktops.forEach(this.addKwinDesktop);
     workspace.stackingOrder.forEach(this.addKwinWindow);
@@ -34,7 +30,7 @@ export class WM {
       return {
         text: "Tile Window",
         checkable: true,
-        checked: window.isEnabled(),
+        checked: window.enabled,
         triggered: () => {
           this.toggleWindow(window);
         },
@@ -90,12 +86,10 @@ export class WM {
 
   // Windows
   filterWindows = () => {
-    return this.windows.filter((window) => window.isEnabled());
+    return this.windows.filter((window) => window.enabled);
   };
 
   tileWindows = () => {
-    if (this.tiling) return;
-
     this.tiling = true;
 
     this.desktops.forEach((desktop) => {
@@ -167,7 +161,7 @@ export class WM {
   };
 
   toggleWindow = (window: Window) => {
-    if (window.isEnabled()) {
+    if (window.enabled) {
       window.disable(true);
       this.tileWindows();
       workspace.activeWindow = window.kwin;

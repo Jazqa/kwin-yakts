@@ -109,86 +109,66 @@ var config = {
     desktops: desktops,
 };
 
-var Sides = /** @class */ (function () {
-    function Sides(sides) {
-        this.top = 0;
-        this.left = 0;
-        this.bottom = 0;
-        this.right = 0;
-        if (sides) {
-            this.top = sides.top || 0;
-            this.left = sides.left || 0;
-            this.bottom = sides.bottom || 0;
-            this.right = sides.right || 0;
-        }
-    }
-    return Sides;
-}());
-var rectClone = function (rect) {
-    var x = rect.x, y = rect.y, width = rect.width, height = rect.height, left = rect.left, top = rect.top, bottom = rect.bottom, right = rect.right;
-    return { x: x, y: y, width: width, height: height, left: left, top: top, bottom: bottom, right: right };
+var toX2 = function (rect) {
+    return rect.x + rect.width;
 };
-var rectAdd = function (rect, edge) {
-    var newRect = rectClone(rect);
-    Object.keys(edge).forEach(function (key) {
-        newRect[key] += edge[key];
-    });
-    newRect.x = newRect.left;
-    newRect.y = newRect.top;
-    newRect.width = newRect.right - newRect.left;
-    newRect.height = newRect.bottom - newRect.top;
+var toY2 = function (rect) {
+    return rect.y + rect.height;
+};
+var rectClone = function (rect) {
+    var x = rect.x, y = rect.y, width = rect.width, height = rect.height;
+    return { x: x, y: y, width: width, height: height };
+};
+var rectCombine = function (rectA, rectB) {
+    var newRect = rectClone(rectA);
+    newRect.x = Math.min(rectA.x, rectB.x);
+    newRect.y = Math.min(rectA.y, rectB.y);
+    var x2 = Math.max(rectA.x + rectA.width, rectB.x + rectB.width);
+    var y2 = Math.max(rectA.y + rectA.height, rectB.y + rectB.height);
+    newRect.width = x2 - newRect.x;
+    newRect.height = y2 - newRect.y;
     return newRect;
 };
-var rectCombineV = function (rectA, rectB) {
-    var rect = rectClone(rectA);
-    rect.y = Math.min(rectA.y, rectB.y);
-    rect.height = rectA.height + rectB.height;
-    rect.top = Math.min(rectA.top, rectB.top);
-    rect.bottom = Math.max(rectA.bottom, rectB.bottom);
-    return rect;
+var rectAdd = function (rectA, rectB) {
+    var newRect = rectClone(rectA);
+    newRect.x += rectB.x;
+    newRect.y += rectB.y;
+    newRect.width -= rectB.width + rectB.x;
+    newRect.height -= rectB.height + rectB.y;
+    return newRect;
 };
-var rectDivideV = function (rect) {
+// No clue what happens when with and height are modified in the same call, but it's completely broken
+// Values look fine on JavaScript side of things, but windows go crazy
+var rectDivide = function (rect, size) {
     var rectA = rectClone(rect);
-    rectA.height *= 0.5;
+    // rectA.width = rect.width * size.width;
+    rectA.height = rect.height * size.height;
     var rectB = rectClone(rectA);
-    rectA.bottom = rectA.y + rectA.height;
-    rectB.y = rectA.bottom;
-    rectB.top = rectA.bottom;
+    // rectB.x = rectA.x + rectA.width;
+    rectB.y = rectA.y + rectA.height;
     return [rectA, rectB];
 };
 var rectGap = function (rect, gap) {
-    var x = rect.x, y = rect.y, width = rect.width, height = rect.height, left = rect.left, top = rect.top, bottom = rect.bottom, right = rect.right;
+    var x = rect.x, y = rect.y, width = rect.width, height = rect.height;
     x += gap;
     y += gap;
     width -= gap * 2;
     height -= gap * 2;
-    left += gap;
-    top += gap;
-    bottom -= gap;
-    right -= gap;
-    return { x: x, y: y, width: width, height: height, left: left, top: top, bottom: bottom, right: right };
+    return { x: x, y: y, width: width, height: height };
 };
 var rectMargin = function (rect, margin) {
-    var x = rect.x, y = rect.y, width = rect.width, height = rect.height, left = rect.left, top = rect.top, bottom = rect.bottom, right = rect.right;
+    var x = rect.x, y = rect.y, width = rect.width, height = rect.height;
     x += margin.left;
     y += margin.top;
     width -= margin.left + margin.right;
     height -= margin.top + margin.bottom;
-    left += margin.left;
-    top += margin.top;
-    bottom -= margin.bottom;
-    right -= margin.right;
-    return { x: x, y: y, width: width, height: height, left: left, top: top, bottom: bottom, right: right };
+    return { x: x, y: y, width: width, height: height };
 };
 var rectCenterTo = function (rectA, rectB) {
-    var x = rectA.x, y = rectA.y, width = rectA.width, height = rectA.height, left = rectA.left, top = rectA.top, bottom = rectA.bottom, right = rectA.right;
-    x = rectB.right * 0.5 - width * 0.5;
-    y = rectB.bottom * 0.5 - height * 0.5;
-    left = x;
-    top = y;
-    bottom = y + height;
-    right = x + width;
-    return { x: x, y: y, width: width, height: height, left: left, top: top, bottom: bottom, right: right };
+    var x = rectA.x, y = rectA.y, width = rectA.width, height = rectA.height;
+    x = (rectB.x + rectB.width) * 0.5 - width * 0.5;
+    y = (rectB.y + rectB.height) * 0.5 - height * 0.5;
+    return { x: x, y: y, width: width, height: height };
 };
 var distanceTo = function (rectA, rectB) {
     return Math.abs(rectA.x - rectB.x) + Math.abs(rectA.y - rectB.y);
@@ -202,18 +182,46 @@ var overlapsWith = function (rectA, rectB) {
     return x && y;
 };
 
-var i = 0;
-var Columns = /** @class */ (function () {
+var id = 0;
+var BaseLayout = /** @class */ (function () {
+    function BaseLayout(rect) {
+        this.adjustRect = function (newRect) { };
+        this.tileWindows = function (windows) { };
+        this.resizeWindow = function (window, oldRect) { };
+        this.id = id.toString();
+        id++;
+        this.rect = rect;
+    }
+    BaseLayout.prototype.reset = function () { };
+    return BaseLayout;
+}());
+
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+var Columns = /** @class */ (function (_super) {
+    __extends(Columns, _super);
     function Columns(rect) {
-        var _this = this;
-        this.minWindowWidth = 500;
-        this.separators = [];
-        this.resized = [];
-        this.adjustRect = function (newRect) {
+        var _this = _super.call(this, rect) || this;
+        _this.name = "Columns";
+        _this.minWindowWidth = 500;
+        _this.separators = [];
+        _this.resized = [];
+        _this.adjustRect = function (newRect) {
             _this.rect = newRect;
             _this.reset();
         };
-        this.resetSeparators = function (windows) {
+        _this.resetSeparators = function (windows) {
             if (windows.length > _this.separators.length) {
                 for (var i = 0; i < _this.resized.length; i++) {
                     if (_this.resized[i]) {
@@ -224,7 +232,7 @@ var Columns = /** @class */ (function () {
             _this.separators.splice(windows.length - 1);
             _this.resized.splice(windows.length - 1);
         };
-        this.tileWindows = function (windows) {
+        _this.tileWindows = function (windows) {
             _this.resetSeparators(windows);
             for (var i = 0; i < windows.length; i++) {
                 var j = i + 1;
@@ -247,12 +255,12 @@ var Columns = /** @class */ (function () {
                 window.setFrameGeometry(tile);
             });
         };
-        this.resizeWindow = function (window, oldRect) {
+        _this.resizeWindow = function (window, oldRect) {
             var newRect = rectClone(window.kwin.frameGeometry);
             var x = oldRect.x;
             var separatorDir = -1;
             if (newRect.x - oldRect.x === 0) {
-                x = oldRect.right;
+                x = oldRect.x + oldRect.width;
                 separatorDir = 1;
             }
             var i = -1;
@@ -281,7 +289,7 @@ var Columns = /** @class */ (function () {
             if (_this.separators[i] + diff <= minX) {
                 diff = minX - _this.separators[i];
             }
-            var nextSeparator = i === _this.separators.length - 1 ? _this.rect.right : _this.separators[i + 1];
+            var nextSeparator = i === _this.separators.length - 1 ? _this.rect.x + _this.rect.width : _this.separators[i + 1];
             var maxX = nextSeparator - _this.minWindowWidth;
             if (_this.separators[i] + diff >= maxX) {
                 diff = maxX - _this.separators[i];
@@ -291,88 +299,100 @@ var Columns = /** @class */ (function () {
             _this.resized[i] = _this.resized[i] + diff;
             return sides;
         };
-        this.checkSides = function (index, newRect, oldRect) {
-            var sides = new Sides();
-            if (newRect.top !== oldRect.top) {
-                sides.top = oldRect.top - newRect.top;
+        _this.checkSides = function (index, newRect, oldRect) {
+            var rect = { x: 0, y: 0, width: 0, height: 0 };
+            var newRectY2 = toY2(newRect);
+            var oldRectY2 = toY2(oldRect);
+            if (newRect.y !== oldRect.y) {
+                rect.y = oldRect.y - newRect.y;
             }
-            if (newRect.bottom !== oldRect.bottom) {
-                sides.bottom = oldRect.bottom - newRect.bottom;
+            if (newRectY2 !== oldRectY2) {
+                rect.height = oldRectY2 - newRectY2;
             }
             if (index < 0 && newRect.width !== oldRect.width) {
-                sides.left = newRect.width - oldRect.width;
+                rect.x = newRect.width - oldRect.width;
             }
             if (index === _this.separators.length - 1 && newRect.width !== oldRect.width) {
-                sides.right = oldRect.width - newRect.width;
+                rect.width = oldRect.width - newRect.width;
             }
-            return sides;
+            return rect;
         };
-        this.id = "C" + i;
-        i++;
-        this.rect = rect;
-        this.limit = 2;
+        _this.limit = 2;
+        return _this;
     }
     Columns.prototype.reset = function () { };
     return Columns;
-}());
+}(BaseLayout));
 
-var Full = /** @class */ (function () {
+var __extends$1 = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+var Full = /** @class */ (function (_super) {
+    __extends$1(Full, _super);
     function Full(rect) {
-        var _this = this;
-        this.id = "Full";
-        this.limit = 0;
-        this.layouts = [];
-        this.adjustRect = function (newRect) { };
-        this.addLayout = function (layout) {
+        var _this = _super.call(this, rect) || this;
+        _this.name = "Full";
+        _this.limit = 0;
+        _this.layouts = [];
+        _this.adjustRect = function (newRect) { };
+        _this.addLayout = function (layout) {
             _this.layouts.push(layout);
             _this.limit += layout.limit;
         };
-        this.createLayout = function (layoutA) {
-            var rects = rectDivideV(layoutA.rect);
+        _this.createLayout = function (layoutA) {
+            var rects = rectDivide(layoutA.rect, { width: 1, height: 0.5 });
             layoutA.adjustRect(rects[0]);
             var layoutB = new Columns(rects[1]);
             _this.addLayout(layoutB);
         };
-        this.removeLayout = function () {
+        _this.removeLayout = function () {
             var length = _this.layouts.length;
             var layoutA = _this.layouts[length - 2];
             var layoutB = _this.layouts.splice(length - 1)[0];
             _this.limit -= layoutB.limit;
-            layoutA.adjustRect(rectCombineV(layoutA.rect, layoutB.rect));
+            layoutA.adjustRect(rectCombine(layoutA.rect, layoutB.rect));
         };
         // @param layoutA - The layout in which a window triggered the resize event
-        // @param sides    - "Raw" resize sides from the resize event (even if it goes way over bounds)
-        this.resizeLayout = function (layoutA, sides) {
-            // Actual resize sides used to resize layoutA (sides have values only if another layer was resized towards the side)
-            var sidesA = new Sides();
+        // @param rect    - "Raw" resize rect from the resize event (even if it goes way over bounds)
+        _this.resizeLayout = function (layoutA, rect) {
+            // Actual resize rect used to resize layoutA (has values only on overlap)
+            var rectA = { x: 0, y: 0, width: 0, height: 0 };
             _this.layouts.forEach(function (layoutB) {
                 if (layoutB.id === layoutA.id)
                     return;
-                // Overlap edge between layoutB and layoutA
-                var sidesB = new Sides();
-                if (layoutB.rect.top === layoutA.rect.bottom) {
-                    sidesA.bottom = sides.bottom;
-                    sidesB.top += sides.bottom;
+                // Overlap rect between layoutB and layoutA
+                var rectB = { x: 0, y: 0, width: 0, height: 0 };
+                if (layoutA.rect.y === toY2(layoutB.rect)) {
+                    rectA.y = rect.y;
+                    rectB.height = -rect.y;
                 }
-                if (layoutB.rect.left === layoutA.rect.right) {
-                    sidesA.right = sides.right;
-                    sidesB.left += sides.right;
+                if (layoutB.rect.y === toY2(layoutA.rect)) {
+                    rectB.y = rect.height;
+                    rectA.height = -rect.height;
                 }
-                if (layoutB.rect.bottom === layoutA.rect.top) {
-                    sidesA.top = sides.top;
-                    sidesB.bottom += sides.top;
+                if (layoutA.rect.x === toX2(layoutB.rect)) {
+                    rectA.x = rect.x;
+                    rectB.width = -rect.x;
                 }
-                if (layoutB.rect.right === layoutA.rect.left) {
-                    sidesA.left = sides.left;
-                    sidesB.right += sides.left;
+                if (layoutB.rect.x === toX2(layoutA.rect)) {
+                    rectB.x = rect.width;
+                    rectA.width = -rect.width;
                 }
-                var rectB = rectAdd(layoutB.rect, sidesB);
-                layoutB.adjustRect(rectB);
+                layoutB.adjustRect(rectAdd(layoutB.rect, rectB));
             });
-            var rectA = rectAdd(layoutA.rect, sidesA);
-            layoutA.adjustRect(rectA);
+            layoutA.adjustRect(rectAdd(layoutA.rect, rectA));
         };
-        this.tileWindows = function (windows) {
+        _this.tileWindows = function (windows) {
             var length = _this.layouts.length;
             var layoutA = _this.layouts[length - 1];
             if (windows.length > _this.limit) {
@@ -389,7 +409,7 @@ var Full = /** @class */ (function () {
                 i = j;
             });
         };
-        this.resizeWindow = function (window, oldRect) {
+        _this.resizeWindow = function (window, oldRect) {
             _this.layouts.some(function (layout) {
                 if (overlapsWith(layout.rect, oldRect)) {
                     var edge = layout.resizeWindow(window, oldRect);
@@ -400,13 +420,13 @@ var Full = /** @class */ (function () {
                 }
             });
         };
-        this.rect = rect;
         var layout = new Columns(rect);
-        this.addLayout(layout);
+        _this.addLayout(layout);
+        return _this;
     }
     Full.prototype.reset = function () { };
     return Full;
-}());
+}(BaseLayout));
 
 /*
  * Adding a new layout to the script:
@@ -426,7 +446,7 @@ var Full = /** @class */ (function () {
  *           </item>
  *
  */
-var Layouts = [Full, Full, Full, Full, Full];
+var Layouts = [Full, Full, Full, Full, Full, Full];
 
 // 2ed6
 // Used to fetch configuration values for individual outputs (configuration value format: kcfg_<key>_<index>)
@@ -448,10 +468,10 @@ var Output = /** @class */ (function () {
         this.filterWindows = function (windows) {
             return windows.filter(function (window) {
                 // Window is disabled
-                if (!window.isEnabled())
+                if (!window.enabled)
                     return false;
                 // Window is not on this output
-                if (!window.isOnKwinOutput(_this.kwin))
+                if (window.kwin.output.serialNumber !== _this.kwin.serialNumber)
                     return false;
                 return true;
             });
@@ -497,7 +517,7 @@ var Desktop = /** @class */ (function () {
         this.filterWindows = function (windows) {
             return windows.filter(function (window) {
                 // Window is disabled
-                if (!window.isEnabled())
+                if (!window.enabled)
                     return false;
                 // Window is not on this desktop
                 if (!window.isOnKwinDesktop(_this.kwin))
@@ -527,20 +547,11 @@ var Window = /** @class */ (function () {
         // In practice, disabled = true tiles can be re-enabled automatically by the script, but disabled = false tiles can only be re-enabled manually by the user
         this.enabled = true;
         this.disabled = false;
-        this.isEnabled = function () {
-            return _this.enabled;
-        };
-        this.isDisabled = function () {
-            return !_this.enabled;
-        };
         this.isAutoTilingEnabled = function () {
             return config.auto[outputIndex(_this.kwin.output)];
         };
         this.isDisabledByDefault = function () {
             return !_this.isAutoTilingEnabled() || _this.kwin.minimized || _this.kwin.fullScreen || _this.isMaximized();
-        };
-        this.isOnKwinOutput = function (kwinOutput) {
-            return _this.kwin.output.serialNumber === kwinOutput.serialNumber;
         };
         // cf3f
         this.isOnKwinDesktop = function (kwinDesktop) {
@@ -630,12 +641,12 @@ var Window = /** @class */ (function () {
         // frameGeometryAboutToChange and frameGeometryChanged are used only for moving windows via KWin's default shortcuts
         // _isKeyboard and _oldGeometryKeyboard are used to identify signals triggered by the shortcut
         this.frameGeometryAboutToChange = function () {
-            if (!_this.wm.isTiling() && !_this.kwin.move && !_this.kwin.resize && !_this.move && !_this.resize) {
+            if (!_this.wm.tiling && !_this.kwin.move && !_this.kwin.resize && !_this.move && !_this.resize) {
                 _this.isKeyboard = true;
             }
         };
         this.frameGeometryChanged = function (oldRect) {
-            if (!_this.wm.isTiling() && _this.kwin.move && _this.kwin.resize && !_this.move && !_this.resize && _this.isKeyboard) {
+            if (!_this.wm.tiling && _this.kwin.move && _this.kwin.resize && !_this.move && !_this.resize && _this.isKeyboard) {
                 if (_this.oldGeometryKeyboard) {
                     _this.startMove(_this.oldGeometryKeyboard);
                     _this.stopMove();
@@ -739,7 +750,7 @@ var WM = /** @class */ (function () {
                 return {
                     text: "Tile Window",
                     checkable: true,
-                    checked: window.isEnabled(),
+                    checked: window.enabled,
                     triggered: function () {
                         _this.toggleWindow(window);
                     },
@@ -787,11 +798,9 @@ var WM = /** @class */ (function () {
         };
         // Windows
         this.filterWindows = function () {
-            return _this.windows.filter(function (window) { return window.isEnabled(); });
+            return _this.windows.filter(function (window) { return window.enabled; });
         };
         this.tileWindows = function () {
-            if (_this.tiling)
-                return;
             _this.tiling = true;
             _this.desktops.forEach(function (desktop) {
                 if (desktop.kwin.id === workspace.currentDesktop.id) {
@@ -864,7 +873,7 @@ var WM = /** @class */ (function () {
             _this.toggleWindow(window);
         };
         this.toggleWindow = function (window) {
-            if (window.isEnabled()) {
+            if (window.enabled) {
                 window.disable(true);
                 _this.tileWindows();
                 workspace.activeWindow = window.kwin;
@@ -883,9 +892,6 @@ var WM = /** @class */ (function () {
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
         registerUserActionsMenu(this.actionsMenu);
     }
-    WM.prototype.isTiling = function () {
-        return this.tiling;
-    };
     return WM;
 }());
 

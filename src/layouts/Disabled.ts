@@ -1,18 +1,9 @@
 import { QRect } from "../types/qt";
 import { Window } from "../window";
 import { Layout } from "../types/layout";
+import { BaseLayout } from "./BaseLayout";
 
-export class Disabled implements Layout {
-  id: string = "Disabled";
-
-  rect: QRect;
+export class Disabled extends BaseLayout {
+  name: string = "Disabled";
   limit: number = 0;
-
-  adjustRect = (newRect: QRect) => {};
-
-  tileWindows = (windows: Array<Window>) => {};
-
-  resizeWindow = (window: Window, oldRect: QRect) => {};
-
-  reset() {}
 }

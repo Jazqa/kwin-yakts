@@ -1,26 +1,19 @@
-import { Sides, rectClone } from "../math";
+import { rectClone, toX2, toY2 } from "../math";
 import { Layout } from "../types/layout";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
+import { BaseLayout } from "./BaseLayout";
 
-let i = 0;
-
-export class Columns implements Layout {
-  id: string;
+export class Columns extends BaseLayout {
+  name: string = "Columns";
 
   minWindowWidth: number = 500;
-
-  rect: QRect;
-  limit: number;
 
   separators: Array<number> = [];
   resized: Array<number> = [];
 
   constructor(rect: QRect) {
-    this.id = "C" + i;
-    i++;
-
-    this.rect = rect;
+    super(rect);
     this.limit = 2;
   }
 
@@ -70,14 +63,14 @@ export class Columns implements Layout {
     });
   };
 
-  resizeWindow = (window: Window, oldRect: QRect): Sides => {
+  resizeWindow = (window: Window, oldRect: QRect): QRect => {
     const newRect = rectClone(window.kwin.frameGeometry);
 
     let x = oldRect.x;
 
     let separatorDir = -1;
     if (newRect.x - oldRect.x === 0) {
-      x = oldRect.right;
+      x = oldRect.x + oldRect.width;
       separatorDir = 1;
     }
 
@@ -113,7 +106,7 @@ export class Columns implements Layout {
       diff = minX - this.separators[i];
     }
 
-    const nextSeparator = i === this.separators.length - 1 ? this.rect.right : this.separators[i + 1];
+    const nextSeparator = i === this.separators.length - 1 ? this.rect.x + this.rect.width : this.separators[i + 1];
     const maxX = nextSeparator - this.minWindowWidth;
     if (this.separators[i] + diff >= maxX) {
       diff = maxX - this.separators[i];
@@ -125,26 +118,29 @@ export class Columns implements Layout {
     return sides;
   };
 
-  checkSides = (index: number, newRect: QRect, oldRect: QRect): Sides => {
-    const sides: Sides = new Sides();
+  checkSides = (index: number, newRect: QRect, oldRect: QRect): QRect => {
+    const rect: QRect = { x: 0, y: 0, width: 0, height: 0 };
 
-    if (newRect.top !== oldRect.top) {
-      sides.top = oldRect.top - newRect.top;
+    const newRectY2 = toY2(newRect);
+    const oldRectY2 = toY2(oldRect);
+
+    if (newRect.y !== oldRect.y) {
+      rect.y = oldRect.y - newRect.y;
     }
 
-    if (newRect.bottom !== oldRect.bottom) {
-      sides.bottom = oldRect.bottom - newRect.bottom;
+    if (newRectY2 !== oldRectY2) {
+      rect.height = oldRectY2 - newRectY2;
     }
 
     if (index < 0 && newRect.width !== oldRect.width) {
-      sides.left = newRect.width - oldRect.width;
+      rect.x = newRect.width - oldRect.width;
     }
 
     if (index === this.separators.length - 1 && newRect.width !== oldRect.width) {
-      sides.right = oldRect.width - newRect.width;
+      rect.width = oldRect.width - newRect.width;
     }
 
-    return sides;
+    return rect;
   };
 
   reset() {}

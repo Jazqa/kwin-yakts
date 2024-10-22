@@ -1,6 +1,5 @@
-import { Sides } from "../math";
 import { Window } from "../window";
-import { QSides, QRect } from "./qt";
+import { QRect } from "./qt";
 
 /*
  * An interface which all tiling layouts should implement
@@ -8,7 +7,12 @@ import { QSides, QRect } from "./qt";
 
 export interface Layout {
   /*
-   * Identifier for the Layout
+   * Name of the Layout
+   */
+  name: string;
+
+  /*
+   * Unique identifier for each instance of the Layout
    */
   id: string;
 
@@ -36,7 +40,7 @@ export interface Layout {
    *  @param window   - The window that was resized
    *  @param oldRect  - QRect of the window when windowStartUserMovedResized was triggered
    */
-  resizeWindow: (window: Window, oldRect: QRect) => Sides | void;
+  resizeWindow: (window: Window, oldRect: QRect) => QRect | void;
 
   /*
    *  Adjusts the available tiling space of the Layout

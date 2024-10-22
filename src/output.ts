@@ -49,9 +49,9 @@ export class Output {
     let i = 0;
     return windows.filter((window) => {
       // Window is disabled
-      if (!window.isEnabled()) return false;
+      if (!window.enabled) return false;
       // Window is not on this output
-      if (!window.isOnKwinOutput(this.kwin)) return false;
+      if (window.kwin.output.serialNumber !== this.kwin.serialNumber) return false;
 
       i += 1;
       return true;

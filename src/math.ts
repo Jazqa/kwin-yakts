@@ -1,126 +1,90 @@
 import { Margin } from "./config";
-import { QSides, QRect } from "./types/qt";
+import { QRect, QSize } from "./types/qt";
 
-export class Sides implements QSides {
-  top: number = 0;
-  left: number = 0;
-  bottom: number = 0;
-  right: number = 0;
-
-  constructor(sides?: QSides) {
-    if (sides) {
-      this.top = sides.top || 0;
-      this.left = sides.left || 0;
-      this.bottom = sides.bottom || 0;
-      this.right = sides.right || 0;
-    }
-  }
-}
-
-export const edgeClone = (sides: QSides): QSides => {
-  const { top, left, bottom, right } = sides;
-  return { top, left, bottom, right };
+export const toX2 = (rect: QRect): number => {
+  return rect.x + rect.width;
 };
 
-export const sidesAdd = (sidesA: QSides, sidesB: QSides): QSides => {
-  const newSides = edgeClone(sidesA);
-
-  Object.keys(newSides).forEach((key) => {
-    newSides[key] += sidesB[key];
-  });
-
-  return newSides;
+export const toY2 = (rect: QRect): number => {
+  return rect.y + rect.height;
 };
 
 export const rectClone = (rect: QRect): QRect => {
-  const { x, y, width, height, left, top, bottom, right } = rect;
-  return { x, y, width, height, left, top, bottom, right };
+  const { x, y, width, height } = rect;
+  return { x, y, width, height };
 };
 
-export const rectAdd = (rect: QRect, edge: QSides): QRect => {
-  const newRect = rectClone(rect);
+export const rectCombine = (rectA: QRect, rectB: QRect): QRect => {
+  const newRect = rectClone(rectA);
 
-  Object.keys(edge).forEach((key) => {
-    newRect[key] += edge[key];
-  });
+  newRect.x = Math.min(rectA.x, rectB.x);
+  newRect.y = Math.min(rectA.y, rectB.y);
 
-  newRect.x = newRect.left;
-  newRect.y = newRect.top;
-  newRect.width = newRect.right - newRect.left;
-  newRect.height = newRect.bottom - newRect.top;
+  const x2 = Math.max(rectA.x + rectA.width, rectB.x + rectB.width);
+  const y2 = Math.max(rectA.y + rectA.height, rectB.y + rectB.height);
+
+  newRect.width = x2 - newRect.x;
+  newRect.height = y2 - newRect.y;
 
   return newRect;
 };
 
-export const rectCombineV = (rectA: QRect, rectB: QRect): QRect => {
-  const rect = rectClone(rectA);
+export const rectAdd = (rectA: QRect, rectB: QRect): QRect => {
+  const newRect = rectClone(rectA);
 
-  rect.y = Math.min(rectA.y, rectB.y);
-  rect.height = rectA.height + rectB.height;
-  rect.top = Math.min(rectA.top, rectB.top);
-  rect.bottom = Math.max(rectA.bottom, rectB.bottom);
+  newRect.x += rectB.x;
+  newRect.y += rectB.y;
+  newRect.width -= rectB.width + rectB.x;
+  newRect.height -= rectB.height + rectB.y;
 
-  return rect;
+  return newRect;
 };
 
-export const rectDivideV = (rect: QRect): Array<QRect> => {
+// No clue what happens when with and height are modified in the same call, but it's completely broken
+// Values look fine on JavaScript side of things, but windows go crazy
+export const rectDivide = (rect: QRect, size: QSize): Array<QRect> => {
   const rectA = rectClone(rect);
 
-  rectA.height *= 0.5;
+  // rectA.width = rect.width * size.width;
+  rectA.height = rect.height * size.height;
 
   const rectB = rectClone(rectA);
 
-  rectA.bottom = rectA.y + rectA.height;
-
-  rectB.y = rectA.bottom;
-  rectB.top = rectA.bottom;
+  // rectB.x = rectA.x + rectA.width;
+  rectB.y = rectA.y + rectA.height;
 
   return [rectA, rectB];
 };
 
 export const rectGap = (rect: QRect, gap: number): QRect => {
-  let { x, y, width, height, left, top, bottom, right } = rect;
+  let { x, y, width, height } = rect;
 
   x += gap;
   y += gap;
   width -= gap * 2;
   height -= gap * 2;
 
-  left += gap;
-  top += gap;
-  bottom -= gap;
-  right -= gap;
-
-  return { x, y, width, height, left, top, bottom, right };
+  return { x, y, width, height };
 };
 
 export const rectMargin = (rect: QRect, margin: Margin): QRect => {
-  let { x, y, width, height, left, top, bottom, right } = rect;
+  let { x, y, width, height } = rect;
 
   x += margin.left;
   y += margin.top;
   width -= margin.left + margin.right;
   height -= margin.top + margin.bottom;
 
-  left += margin.left;
-  top += margin.top;
-  bottom -= margin.bottom;
-  right -= margin.right;
-
-  return { x, y, width, height, left, top, bottom, right };
+  return { x, y, width, height };
 };
 
 export const rectCenterTo = (rectA: QRect, rectB: QRect): QRect => {
-  let { x, y, width, height, left, top, bottom, right } = rectA;
+  let { x, y, width, height } = rectA;
 
-  x = rectB.right * 0.5 - width * 0.5;
-  y = rectB.bottom * 0.5 - height * 0.5;
-  left = x;
-  top = y;
-  bottom = y + height;
-  right = x + width;
+  x = (rectB.x + rectB.width) * 0.5 - width * 0.5;
+  y = (rectB.y + rectB.height) * 0.5 - height * 0.5;
 
-  return { x, y, width, height, left, top, bottom, right };
+  return { x, y, width, height };
 };
 
 export const distanceTo = (rectA: QRect, rectB: QRect): number => {

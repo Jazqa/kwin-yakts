@@ -28,24 +28,12 @@ export class Window {
   oldGeometry: QRect;
   oldGeometryKeyboard: QRect | undefined;
 
-  isEnabled = () => {
-    return this.enabled;
-  };
-
-  isDisabled = () => {
-    return !this.enabled;
-  };
-
   isAutoTilingEnabled = () => {
     return config.auto[outputIndex(this.kwin.output)];
   };
 
   isDisabledByDefault = () => {
     return !this.isAutoTilingEnabled() || this.kwin.minimized || this.kwin.fullScreen || this.isMaximized();
-  };
-
-  isOnKwinOutput = (kwinOutput: KWinOutput) => {
-    return this.kwin.output.serialNumber === kwinOutput.serialNumber;
   };
 
   // cf3f
@@ -165,12 +153,12 @@ export class Window {
   // frameGeometryAboutToChange and frameGeometryChanged are used only for moving windows via KWin's default shortcuts
   // _isKeyboard and _oldGeometryKeyboard are used to identify signals triggered by the shortcut
   frameGeometryAboutToChange = () => {
-    if (!this.wm.isTiling() && !this.kwin.move && !this.kwin.resize && !this.move && !this.resize) {
+    if (!this.wm.tiling && !this.kwin.move && !this.kwin.resize && !this.move && !this.resize) {
       this.isKeyboard = true;
     }
   };
   frameGeometryChanged = (oldRect: QRect) => {
-    if (!this.wm.isTiling() && this.kwin.move && this.kwin.resize && !this.move && !this.resize && this.isKeyboard) {
+    if (!this.wm.tiling && this.kwin.move && this.kwin.resize && !this.move && !this.resize && this.isKeyboard) {
       if (this.oldGeometryKeyboard) {
         this.startMove(this.oldGeometryKeyboard);
         this.stopMove();

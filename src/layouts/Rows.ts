@@ -2,20 +2,18 @@ import { rectClone } from "../math";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
 import { Layout } from "../types/layout";
+import { BaseLayout } from "./BaseLayout";
 
-export class Rows implements Layout {
-  id: string = "Rows";
+export class Rows extends BaseLayout {
+  name: string = "Rows";
 
   minWindowHeight: number = 280;
-
-  rect: QRect;
-  limit: number;
 
   separators: Array<number> = [];
   resized: Array<number> = [];
 
   constructor(rect: QRect) {
-    this.rect = rect;
+    super(rect);
     this.limit = this.rect.height / this.minWindowHeight;
   }
 
@@ -73,7 +71,7 @@ export class Rows implements Layout {
 
     let separatorDir = -1; // Down
     if (newRect.y - oldRect.y === 0) {
-      y = oldRect.bottom;
+      y = oldRect.y + oldRect.height;
       separatorDir = 1; // Up
     }
 
@@ -107,7 +105,7 @@ export class Rows implements Layout {
       diff = minY - this.separators[i];
     }
 
-    const nextSeparator = i === this.separators.length - 1 ? this.rect.bottom : this.separators[i + 1];
+    const nextSeparator = i === this.separators.length - 1 ? this.rect.y + this.rect.height : this.separators[i + 1];
     const maxY = nextSeparator - this.minWindowHeight;
     if (this.separators[i] + diff >= maxY) {
       diff = maxY - this.separators[i];
