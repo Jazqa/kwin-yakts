@@ -7,12 +7,14 @@ function maximizeArea(output, desktop) {
     return workspace.clientArea(2, output, desktop);
 }
 
-var __spreadArrays = (undefined && undefined.__spreadArrays) || function () {
-    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
-    for (var r = Array(s), k = 0, i = 0; i < il; i++)
-        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
-            r[k] = a[j];
-    return r;
+var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
 };
 var auto = [
     readConfigString("auto_0", true) === "true",
@@ -66,7 +68,7 @@ var limit = [
 ];
 var minWidth = readConfig("minWidth", 256);
 var minHeight = readConfig("minHeight", 256);
-var processes = __spreadArrays([
+var processes = __spreadArray(__spreadArray([
     "albert",
     "kazam",
     "krunner",
@@ -83,8 +85,8 @@ var processes = __spreadArrays([
     "ksmserver-logout-greeter",
     "QEMU",
     "Latte Dock"
-], readConfigString("processes", "wine, steam").toLowerCase().split(", "), [readConfigString("java", false) === "true" ? "sun-awt-x11-xframepeer" : ""]);
-var captions = __spreadArrays([
+], readConfigString("processes", "wine, steam").toLowerCase().split(", "), true), [readConfigString("java", false) === "true" ? "sun-awt-x11-xframepeer" : ""], false);
+var captions = __spreadArray([
     "Configure — System Settings",
     "File Upload",
     "Move to Trash",
@@ -92,7 +94,7 @@ var captions = __spreadArrays([
     "Create a New Image"
 ], readConfigString("captions", "Quit GIMP, Create a New Image")
     .split(", ")
-    .filter(function (caption) { return caption; }));
+    .filter(function (caption) { return caption; }), true);
 var desktops = readConfigString("desktops", "")
     .split(", ")
     .map(function (s) { return Number(s); });
@@ -196,21 +198,23 @@ var BaseLayout = /** @class */ (function () {
     return BaseLayout;
 }());
 
-var __extends = (undefined && undefined.__extends) || (function () {
+var __extends$1 = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
 var Columns = /** @class */ (function (_super) {
-    __extends(Columns, _super);
+    __extends$1(Columns, _super);
     function Columns(rect) {
         var _this = _super.call(this, rect) || this;
         _this.name = "Columns";
@@ -328,21 +332,23 @@ var Columns = /** @class */ (function (_super) {
     return Columns;
 }(BaseLayout));
 
-var __extends$1 = (undefined && undefined.__extends) || (function () {
+var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
 var Full = /** @class */ (function (_super) {
-    __extends$1(Full, _super);
+    __extends(Full, _super);
     function Full(rect) {
         var _this = _super.call(this, rect) || this;
         _this.name = "Full";
@@ -704,7 +710,6 @@ var Window = /** @class */ (function () {
                 else {
                     _this.disable();
                 }
-                // TODO
                 _this.wm.pushWindow(_this);
             }
         };
@@ -724,6 +729,8 @@ var Window = /** @class */ (function () {
         this.kwinOutput = kwin.output;
         this.kwinDesktops = kwin.desktops;
         this.originalGeometry = kwin.frameGeometry;
+        this.move = false;
+        this.resize = false;
         this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
         this.kwin.outputChanged.connect(this.outputChanged);
         this.kwin.desktopsChanged.connect(this.desktopsChanged);
@@ -773,8 +780,8 @@ var WM = /** @class */ (function () {
         // KWin Windows
         this.addKwinWindow = function (kwinWindow) {
             if (_this.isKwinWindowAllowed(kwinWindow)) {
-                var window_1 = new Window(_this, kwinWindow);
-                _this.windows.push(window_1);
+                var window = new Window(_this, kwinWindow);
+                _this.windows.push(window);
                 _this.tileWindows();
             }
         };
@@ -803,8 +810,6 @@ var WM = /** @class */ (function () {
             return _this.windows.filter(function (window) { return window.enabled; });
         };
         this.tileWindows = function () {
-            if (_this.tiling)
-                return;
             _this.tiling = true;
             _this.desktops.forEach(function (desktop) {
                 if (desktop.kwin.id === workspace.currentDesktop.id) {
@@ -819,7 +824,11 @@ var WM = /** @class */ (function () {
             _this.windows[j] = window;
         };
         this.moveWindow = function (window, oldRect) {
-            var nearestWindow = _this.windows.find(function (_a) {
+            var index = _this.windows.findIndex(function (_a) {
+                var kwin = _a.kwin;
+                return kwin.internalId === window.kwin.internalId;
+            });
+            var nearestIndex = _this.windows.findIndex(function (_a) {
                 var kwin = _a.kwin;
                 return kwin.internalId === window.kwin.internalId;
             });
@@ -829,21 +838,13 @@ var WM = /** @class */ (function () {
                 if (kwin.internalId !== window.kwin.internalId) {
                     var distance = distanceTo(kwin.frameGeometry, window.kwin.frameGeometry);
                     if (distance < nearestDistance) {
-                        nearestWindow = _this.windows[index];
+                        nearestIndex = index;
                         nearestDistance = distance;
                     }
                 }
             });
-            var i = _this.windows.findIndex(function (_a) {
-                var kwin = _a.kwin;
-                return kwin.internalId === window.kwin.internalId;
-            });
-            var j = _this.windows.findIndex(function (_a) {
-                var kwin = _a.kwin;
-                return kwin.internalId === nearestWindow.kwin.internalId;
-            });
-            if (i !== j) {
-                _this.swapWindows(i, j);
+            if (index !== nearestIndex) {
+                _this.swapWindows(index, nearestIndex);
             }
             _this.tileWindows();
         };
@@ -863,9 +864,9 @@ var WM = /** @class */ (function () {
                 return kwin.internalId === window.kwin.internalId;
             });
             if (index > -1) {
-                var window_2 = _this.windows[index];
+                var window_1 = _this.windows[index];
                 _this.windows.splice(index, 1);
-                _this.windows.push(window_2);
+                _this.windows.push(window_1);
             }
             _this.tileWindows();
         };
@@ -896,7 +897,6 @@ var WM = /** @class */ (function () {
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
         registerUserActionsMenu(this.actionsMenu);
         this.tiling = false;
-        this.tileWindows();
     }
     return WM;
 }());

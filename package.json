@@ -21,8 +21,8 @@
   "homepage": "https://github.com/Jazqa/kwin-yakts#readme",
   "devDependencies": {
     "pre-commit": "^1.2.2",
-    "rollup": "^1.27.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "typescript": "^3.7.2"
+    "rollup": "^4.24.0",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "typescript": "^5.6.3"
   }
 }

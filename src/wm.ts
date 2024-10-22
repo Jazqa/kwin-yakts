@@ -23,7 +23,6 @@ export class WM {
     registerUserActionsMenu(this.actionsMenu);
 
     this.tiling = false;
-    this.tileWindows();
   }
 
   // KWin Actions
@@ -93,7 +92,6 @@ export class WM {
   };
 
   tileWindows = () => {
-    if (this.tiling) return;
     this.tiling = true;
 
     this.desktops.forEach((desktop) => {
@@ -112,24 +110,23 @@ export class WM {
   };
 
   moveWindow = (window: Window, oldRect: QRect) => {
-    let nearestWindow = this.windows.find(({ kwin }) => kwin.internalId === window.kwin.internalId);
+    const index = this.windows.findIndex(({ kwin }) => kwin.internalId === window.kwin.internalId);
+
+    let nearestIndex = this.windows.findIndex(({ kwin }) => kwin.internalId === window.kwin.internalId);
     let nearestDistance = math.distanceTo(window.kwin.frameGeometry, oldRect);
 
     this.windows.forEach(({ kwin }, index) => {
       if (kwin.internalId !== window.kwin.internalId) {
         const distance = math.distanceTo(kwin.frameGeometry, window.kwin.frameGeometry);
         if (distance < nearestDistance) {
-          nearestWindow = this.windows[index];
+          nearestIndex = index;
           nearestDistance = distance;
         }
       }
     });
 
-    const i = this.windows.findIndex(({ kwin }) => kwin.internalId === window.kwin.internalId);
-    const j = this.windows.findIndex(({ kwin }) => kwin.internalId === nearestWindow.kwin.internalId);
-
-    if (i !== j) {
-      this.swapWindows(i, j);
+    if (index !== nearestIndex) {
+      this.swapWindows(index, nearestIndex);
     }
 
     this.tileWindows();
