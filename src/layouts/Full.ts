@@ -1,4 +1,4 @@
-import { Edge, overlapsWith, rectAdd, rectCombineV, rectDivideV } from "../math";
+import { Sides, overlapsWith, rectAdd, rectCombineV, rectDivideV } from "../math";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
 import { Layout } from "../types/layout";
@@ -46,42 +46,42 @@ export class Full implements Layout {
   };
 
   // @param layoutA - The layout in which a window triggered the resize event
-  // @param edge    - "Raw" resize edge from the resize event (even if it goes way over bounds)
-  resizeLayout = (layoutA: Layout, edge: Edge) => {
-    // Actual resize edge used to resize layoutA (sides have values only if another layer was resized towards the side)
-    const edgeA = new Edge();
+  // @param sides    - "Raw" resize sides from the resize event (even if it goes way over bounds)
+  resizeLayout = (layoutA: Layout, sides: Sides) => {
+    // Actual resize sides used to resize layoutA (sides have values only if another layer was resized towards the side)
+    const sidesA = new Sides();
 
     this.layouts.forEach((layoutB) => {
       if (layoutB.id === layoutA.id) return;
 
       // Overlap edge between layoutB and layoutA
-      const edgeB = new Edge();
+      const sidesB = new Sides();
 
       if (layoutB.rect.top === layoutA.rect.bottom) {
-        edgeA.bottom = edge.bottom;
-        edgeB.top += edge.bottom;
+        sidesA.bottom = sides.bottom;
+        sidesB.top += sides.bottom;
       }
 
       if (layoutB.rect.left === layoutA.rect.right) {
-        edgeA.right = edge.right;
-        edgeB.left += edge.right;
+        sidesA.right = sides.right;
+        sidesB.left += sides.right;
       }
 
       if (layoutB.rect.bottom === layoutA.rect.top) {
-        edgeA.top = edge.top;
-        edgeB.bottom += edge.top;
+        sidesA.top = sides.top;
+        sidesB.bottom += sides.top;
       }
 
       if (layoutB.rect.right === layoutA.rect.left) {
-        edgeA.left = edge.left;
-        edgeB.right += edge.left;
+        sidesA.left = sides.left;
+        sidesB.right += sides.left;
       }
 
-      const rectB = rectAdd(layoutB.rect, edgeB);
+      const rectB = rectAdd(layoutB.rect, sidesB);
       layoutB.adjustRect(rectB);
     });
 
-    const rectA = rectAdd(layoutA.rect, edgeA);
+    const rectA = rectAdd(layoutA.rect, sidesA);
     layoutA.adjustRect(rectA);
   };
 

@@ -8,11 +8,11 @@ export interface QSize {
   height: number;
 }
 
-export interface QEdge {
+export interface QSides {
   left: number;
   top: number;
   bottom: number;
   right: number;
 }
 
-export type QRect = QPoint & QSize & QEdge;
+export type QRect = QPoint & QSize & QSides;

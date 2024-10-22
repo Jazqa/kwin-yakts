@@ -1,4 +1,3 @@
-import { rectClone } from "../math";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
 import { Layout } from "../types/layout";

@@ -1,35 +1,35 @@
 import { Margin } from "./config";
-import { QEdge, QRect } from "./types/qt";
+import { QSides, QRect } from "./types/qt";
 
-export class Edge implements QEdge {
+export class Sides implements QSides {
   top: number = 0;
   left: number = 0;
   bottom: number = 0;
   right: number = 0;
 
-  constructor(edge?: QEdge) {
-    if (edge) {
-      this.top = edge.top || 0;
-      this.left = edge.left || 0;
-      this.bottom = edge.bottom || 0;
-      this.right = edge.right || 0;
+  constructor(sides?: QSides) {
+    if (sides) {
+      this.top = sides.top || 0;
+      this.left = sides.left || 0;
+      this.bottom = sides.bottom || 0;
+      this.right = sides.right || 0;
     }
   }
 }
 
-export const edgeClone = (edge: QEdge): QEdge => {
-  const { top, left, bottom, right } = edge;
+export const edgeClone = (sides: QSides): QSides => {
+  const { top, left, bottom, right } = sides;
   return { top, left, bottom, right };
 };
 
-export const edgeAdd = (edgeA: QEdge, edgeB: QEdge): QEdge => {
-  const newEdge = edgeClone(edgeA);
+export const sidesAdd = (sidesA: QSides, sidesB: QSides): QSides => {
+  const newSides = edgeClone(sidesA);
 
-  Object.keys(newEdge).forEach((key) => {
-    newEdge[key] += edgeB[key];
+  Object.keys(newSides).forEach((key) => {
+    newSides[key] += sidesB[key];
   });
 
-  return newEdge;
+  return newSides;
 };
 
 export const rectClone = (rect: QRect): QRect => {
@@ -37,7 +37,7 @@ export const rectClone = (rect: QRect): QRect => {
   return { x, y, width, height, left, top, bottom, right };
 };
 
-export const rectAdd = (rect: QRect, edge: QEdge): QRect => {
+export const rectAdd = (rect: QRect, edge: QSides): QRect => {
   const newRect = rectClone(rect);
 
   Object.keys(edge).forEach((key) => {

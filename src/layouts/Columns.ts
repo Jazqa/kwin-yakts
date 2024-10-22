@@ -1,4 +1,4 @@
-import { Edge, rectClone } from "../math";
+import { Sides, rectClone } from "../math";
 import { Layout } from "../types/layout";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
@@ -70,7 +70,7 @@ export class Columns implements Layout {
     });
   };
 
-  resizeWindow = (window: Window, oldRect: QRect): Edge => {
+  resizeWindow = (window: Window, oldRect: QRect): Sides => {
     const newRect = rectClone(window.kwin.frameGeometry);
 
     let x = oldRect.x;
@@ -96,17 +96,17 @@ export class Columns implements Layout {
       }
     }
 
-    const edges = this.checkEdges(i, oldRect, newRect);
+    const sides = this.checkSides(i, oldRect, newRect);
 
-    // Stop resizing from rect edges
-    if (i < 0 || i === this.separators.length - 1) return edges;
+    // Stop resizing from rect sides
+    if (i < 0 || i === this.separators.length - 1) return sides;
 
     let diff = oldRect.width - newRect.width;
     if (separatorDir > 0) {
       diff = newRect.width - oldRect.width;
     }
 
-    // Stops resizing over rect edges and other separators
+    // Stops resizing over rect sides and other separators
     const prevSeparator = i === 0 ? this.rect.x : this.separators[i - 1];
     const minX = prevSeparator + this.minWindowWidth;
     if (this.separators[i] + diff <= minX) {
@@ -122,29 +122,29 @@ export class Columns implements Layout {
     if (!this.resized[i]) this.resized[i] = 0;
     this.resized[i] = this.resized[i] + diff;
 
-    return edges;
+    return sides;
   };
 
-  checkEdges = (index: number, newRect: QRect, oldRect: QRect): Edge => {
-    const edge: Edge = new Edge();
+  checkSides = (index: number, newRect: QRect, oldRect: QRect): Sides => {
+    const sides: Sides = new Sides();
 
     if (newRect.top !== oldRect.top) {
-      edge.top = oldRect.top - newRect.top;
+      sides.top = oldRect.top - newRect.top;
     }
 
     if (newRect.bottom !== oldRect.bottom) {
-      edge.bottom = oldRect.bottom - newRect.bottom;
+      sides.bottom = oldRect.bottom - newRect.bottom;
     }
 
     if (index < 0 && newRect.width !== oldRect.width) {
-      edge.left = newRect.width - oldRect.width;
+      sides.left = newRect.width - oldRect.width;
     }
 
     if (index === this.separators.length - 1 && newRect.width !== oldRect.width) {
-      edge.right = oldRect.width - newRect.width;
+      sides.right = oldRect.width - newRect.width;
     }
 
-    return edge;
+    return sides;
   };
 
   reset() {}

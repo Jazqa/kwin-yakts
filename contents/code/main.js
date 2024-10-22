@@ -109,20 +109,20 @@ var config = {
     desktops: desktops,
 };
 
-var Edge = /** @class */ (function () {
-    function Edge(edge) {
+var Sides = /** @class */ (function () {
+    function Sides(sides) {
         this.top = 0;
         this.left = 0;
         this.bottom = 0;
         this.right = 0;
-        if (edge) {
-            this.top = edge.top || 0;
-            this.left = edge.left || 0;
-            this.bottom = edge.bottom || 0;
-            this.right = edge.right || 0;
+        if (sides) {
+            this.top = sides.top || 0;
+            this.left = sides.left || 0;
+            this.bottom = sides.bottom || 0;
+            this.right = sides.right || 0;
         }
     }
-    return Edge;
+    return Sides;
 }());
 var rectClone = function (rect) {
     var x = rect.x, y = rect.y, width = rect.width, height = rect.height, left = rect.left, top = rect.top, bottom = rect.bottom, right = rect.right;
@@ -267,15 +267,15 @@ var Columns = /** @class */ (function () {
                     i = j;
                 }
             }
-            var edges = _this.checkEdges(i, oldRect, newRect);
-            // Stop resizing from rect edges
+            var sides = _this.checkSides(i, oldRect, newRect);
+            // Stop resizing from rect sides
             if (i < 0 || i === _this.separators.length - 1)
-                return edges;
+                return sides;
             var diff = oldRect.width - newRect.width;
             if (separatorDir > 0) {
                 diff = newRect.width - oldRect.width;
             }
-            // Stops resizing over rect edges and other separators
+            // Stops resizing over rect sides and other separators
             var prevSeparator = i === 0 ? _this.rect.x : _this.separators[i - 1];
             var minX = prevSeparator + _this.minWindowWidth;
             if (_this.separators[i] + diff <= minX) {
@@ -289,23 +289,23 @@ var Columns = /** @class */ (function () {
             if (!_this.resized[i])
                 _this.resized[i] = 0;
             _this.resized[i] = _this.resized[i] + diff;
-            return edges;
+            return sides;
         };
-        this.checkEdges = function (index, newRect, oldRect) {
-            var edge = new Edge();
+        this.checkSides = function (index, newRect, oldRect) {
+            var sides = new Sides();
             if (newRect.top !== oldRect.top) {
-                edge.top = oldRect.top - newRect.top;
+                sides.top = oldRect.top - newRect.top;
             }
             if (newRect.bottom !== oldRect.bottom) {
-                edge.bottom = oldRect.bottom - newRect.bottom;
+                sides.bottom = oldRect.bottom - newRect.bottom;
             }
             if (index < 0 && newRect.width !== oldRect.width) {
-                edge.left = newRect.width - oldRect.width;
+                sides.left = newRect.width - oldRect.width;
             }
             if (index === _this.separators.length - 1 && newRect.width !== oldRect.width) {
-                edge.right = oldRect.width - newRect.width;
+                sides.right = oldRect.width - newRect.width;
             }
-            return edge;
+            return sides;
         };
         this.id = "C" + i;
         i++;
@@ -341,35 +341,35 @@ var Full = /** @class */ (function () {
             layoutA.adjustRect(rectCombineV(layoutA.rect, layoutB.rect));
         };
         // @param layoutA - The layout in which a window triggered the resize event
-        // @param edge    - "Raw" resize edge from the resize event (even if it goes way over bounds)
-        this.resizeLayout = function (layoutA, edge) {
-            // Actual resize edge used to resize layoutA (sides have values only if another layer was resized towards the side)
-            var edgeA = new Edge();
+        // @param sides    - "Raw" resize sides from the resize event (even if it goes way over bounds)
+        this.resizeLayout = function (layoutA, sides) {
+            // Actual resize sides used to resize layoutA (sides have values only if another layer was resized towards the side)
+            var sidesA = new Sides();
             _this.layouts.forEach(function (layoutB) {
                 if (layoutB.id === layoutA.id)
                     return;
                 // Overlap edge between layoutB and layoutA
-                var edgeB = new Edge();
+                var sidesB = new Sides();
                 if (layoutB.rect.top === layoutA.rect.bottom) {
-                    edgeA.bottom = edge.bottom;
-                    edgeB.top += edge.bottom;
+                    sidesA.bottom = sides.bottom;
+                    sidesB.top += sides.bottom;
                 }
                 if (layoutB.rect.left === layoutA.rect.right) {
-                    edgeA.right = edge.right;
-                    edgeB.left += edge.right;
+                    sidesA.right = sides.right;
+                    sidesB.left += sides.right;
                 }
                 if (layoutB.rect.bottom === layoutA.rect.top) {
-                    edgeA.top = edge.top;
-                    edgeB.bottom += edge.top;
+                    sidesA.top = sides.top;
+                    sidesB.bottom += sides.top;
                 }
                 if (layoutB.rect.right === layoutA.rect.left) {
-                    edgeA.left = edge.left;
-                    edgeB.right += edge.left;
+                    sidesA.left = sides.left;
+                    sidesB.right += sides.left;
                 }
-                var rectB = rectAdd(layoutB.rect, edgeB);
+                var rectB = rectAdd(layoutB.rect, sidesB);
                 layoutB.adjustRect(rectB);
             });
-            var rectA = rectAdd(layoutA.rect, edgeA);
+            var rectA = rectAdd(layoutA.rect, sidesA);
             layoutA.adjustRect(rectA);
         };
         this.tileWindows = function (windows) {
