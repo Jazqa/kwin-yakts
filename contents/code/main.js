@@ -780,8 +780,8 @@ var WM = /** @class */ (function () {
         // KWin Windows
         this.addKwinWindow = function (kwinWindow) {
             if (_this.isKwinWindowAllowed(kwinWindow)) {
-                var window = new Window(_this, kwinWindow);
-                _this.windows.push(window);
+                var window_1 = new Window(_this, kwinWindow);
+                _this.windows.push(window_1);
                 _this.tileWindows();
             }
         };
@@ -807,9 +807,13 @@ var WM = /** @class */ (function () {
         };
         // Windows
         this.filterWindows = function () {
-            return _this.windows.filter(function (window) { return window.enabled; });
+            return _this.windows.filter(function (window) {
+                return window.enabled;
+            });
         };
         this.tileWindows = function () {
+            if (_this.tiling)
+                return;
             _this.tiling = true;
             _this.desktops.forEach(function (desktop) {
                 if (desktop.kwin.id === workspace.currentDesktop.id) {
@@ -864,9 +868,9 @@ var WM = /** @class */ (function () {
                 return kwin.internalId === window.kwin.internalId;
             });
             if (index > -1) {
-                var window_1 = _this.windows[index];
+                var window_2 = _this.windows[index];
                 _this.windows.splice(index, 1);
-                _this.windows.push(window_1);
+                _this.windows.push(window_2);
             }
             _this.tileWindows();
         };
@@ -897,6 +901,7 @@ var WM = /** @class */ (function () {
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
         registerUserActionsMenu(this.actionsMenu);
         this.tiling = false;
+        this.tileWindows();
     }
     return WM;
 }());

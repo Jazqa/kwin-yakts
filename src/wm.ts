@@ -23,6 +23,7 @@ export class WM {
     registerUserActionsMenu(this.actionsMenu);
 
     this.tiling = false;
+    this.tileWindows();
   }
 
   // KWin Actions
@@ -88,10 +89,13 @@ export class WM {
 
   // Windows
   filterWindows = () => {
-    return this.windows.filter((window) => window.enabled);
+    return this.windows.filter((window) => {
+      return window.enabled;
+    });
   };
 
   tileWindows = () => {
+    if (this.tiling) return;
     this.tiling = true;
 
     this.desktops.forEach((desktop) => {
