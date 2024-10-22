@@ -467,9 +467,6 @@ var Output = /** @class */ (function () {
         var _this = this;
         this.filterWindows = function (windows) {
             return windows.filter(function (window) {
-                // Window is disabled
-                if (!window.enabled)
-                    return false;
                 // Window is not on this output
                 if (window.kwin.output.serialNumber !== _this.kwin.serialNumber)
                     return false;
@@ -516,9 +513,6 @@ var Desktop = /** @class */ (function () {
         };
         this.filterWindows = function (windows) {
             return windows.filter(function (window) {
-                // Window is disabled
-                if (!window.enabled)
-                    return false;
                 // Window is not on this desktop
                 if (!window.isOnKwinDesktop(_this.kwin))
                     return false;
@@ -706,6 +700,7 @@ var Window = /** @class */ (function () {
                 else {
                     _this.disable();
                 }
+                // TODO
                 _this.wm.pushWindow(_this);
             }
         };
@@ -722,6 +717,9 @@ var Window = /** @class */ (function () {
         };
         this.wm = wm;
         this.kwin = kwin;
+        this.kwinOutput = kwin.output;
+        this.kwinDesktops = kwin.desktops;
+        this.originalGeometry = kwin.frameGeometry;
         this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
         this.kwin.outputChanged.connect(this.outputChanged);
         this.kwin.desktopsChanged.connect(this.desktopsChanged);
@@ -740,7 +738,7 @@ var Window = /** @class */ (function () {
 var WM = /** @class */ (function () {
     function WM() {
         var _this = this;
-        this.tiling = false;
+        this.tiling = true;
         this.desktops = [];
         this.windows = [];
         // KWin Actions
@@ -801,6 +799,8 @@ var WM = /** @class */ (function () {
             return _this.windows.filter(function (window) { return window.enabled; });
         };
         this.tileWindows = function () {
+            if (_this.tiling)
+                return;
             _this.tiling = true;
             _this.desktops.forEach(function (desktop) {
                 if (desktop.kwin.id === workspace.currentDesktop.id) {
@@ -891,6 +891,8 @@ var WM = /** @class */ (function () {
         workspace.windowActivated.connect(this.tileWindows);
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
         registerUserActionsMenu(this.actionsMenu);
+        this.tiling = false;
+        this.tileWindows();
     }
     return WM;
 }());

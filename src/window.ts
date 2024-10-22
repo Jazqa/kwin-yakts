@@ -45,6 +45,10 @@ export class Window {
     this.wm = wm;
     this.kwin = kwin;
 
+    this.kwinOutput = kwin.output;
+    this.kwinDesktops = kwin.desktops;
+    this.originalGeometry = kwin.frameGeometry;
+
     this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
     this.kwin.outputChanged.connect(this.outputChanged);
     this.kwin.desktopsChanged.connect(this.desktopsChanged);
@@ -226,6 +230,7 @@ export class Window {
         this.disable();
       }
 
+      // TODO
       this.wm.pushWindow(this);
     }
   };

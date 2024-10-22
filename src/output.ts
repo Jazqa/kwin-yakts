@@ -46,14 +46,9 @@ export class Output {
   }
 
   filterWindows = (windows: Array<Window>) => {
-    let i = 0;
     return windows.filter((window) => {
-      // Window is disabled
-      if (!window.enabled) return false;
       // Window is not on this output
       if (window.kwin.output.serialNumber !== this.kwin.serialNumber) return false;
-
-      i += 1;
       return true;
     });
   };

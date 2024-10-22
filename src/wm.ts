@@ -6,7 +6,7 @@ import { QRect } from "./types/qt";
 import { Window } from "./window";
 
 export class WM {
-  tiling: boolean = false;
+  tiling: boolean = true;
   desktops: Array<Desktop> = [];
   windows: Array<Window> = [];
 
@@ -21,6 +21,9 @@ export class WM {
 
     registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
     registerUserActionsMenu(this.actionsMenu);
+
+    this.tiling = false;
+    this.tileWindows();
   }
 
   // KWin Actions
@@ -90,6 +93,7 @@ export class WM {
   };
 
   tileWindows = () => {
+    if (this.tiling) return;
     this.tiling = true;
 
     this.desktops.forEach((desktop) => {

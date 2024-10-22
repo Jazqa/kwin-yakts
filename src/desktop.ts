@@ -46,8 +46,6 @@ export class Desktop {
 
   filterWindows = (windows: Array<Window>) => {
     return windows.filter((window) => {
-      // Window is disabled
-      if (!window.enabled) return false;
       // Window is not on this desktop
       if (!window.isOnKwinDesktop(this.kwin)) return false;
       return true;
