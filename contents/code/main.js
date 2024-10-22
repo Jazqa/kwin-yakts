@@ -235,12 +235,15 @@ var Columns = /** @class */ (function (_super) {
         _this.tileWindows = function (windows) {
             _this.resetSeparators(windows);
             for (var i = 0; i < windows.length; i++) {
-                var j = i + 1;
-                var d = windows.length / j;
-                var base = _this.rect.x + _this.rect.width / d;
+                // Width: 1000
+                // Separators: [250, 500, 750, 1000]
+                var seq = i + 1; // 0-index to 1-index: [1st, 2nd, 3rd, 4th]
+                var ratio = windows.length / seq; // 4 separators: [4.0, 2.0, 1.33, 1.0]
+                var base = _this.rect.x + _this.rect.width / ratio; // 4 positions: [250, 500, 750, 1000]
                 var res = _this.resized[i] || 0;
                 _this.separators[i] = base + res;
             }
+            // Calculates tile rects based on the separators
             var tiles = [];
             for (var i = 0; i < _this.separators.length; i++) {
                 var end = _this.separators[i];
@@ -275,15 +278,15 @@ var Columns = /** @class */ (function (_super) {
                     i = j;
                 }
             }
-            var sides = _this.checkSides(i, oldRect, newRect);
-            // Stop resizing from rect sides
+            var overlap = _this.resizeLayout(i, oldRect, newRect);
+            // Stops resizing from rect edges
             if (i < 0 || i === _this.separators.length - 1)
-                return sides;
+                return overlap;
             var diff = oldRect.width - newRect.width;
             if (separatorDir > 0) {
                 diff = newRect.width - oldRect.width;
             }
-            // Stops resizing over rect sides and other separators
+            // Stops resizing over rect edges and other separators
             var prevSeparator = i === 0 ? _this.rect.x : _this.separators[i - 1];
             var minX = prevSeparator + _this.minWindowWidth;
             if (_this.separators[i] + diff <= minX) {
@@ -297,9 +300,10 @@ var Columns = /** @class */ (function (_super) {
             if (!_this.resized[i])
                 _this.resized[i] = 0;
             _this.resized[i] = _this.resized[i] + diff;
-            return sides;
+            return overlap;
         };
-        _this.checkSides = function (index, newRect, oldRect) {
+        // Calculates how much resizeWindow is trying to resize over this layout's rect (used to resize layouts in layouts that combine layouts)
+        _this.resizeLayout = function (index, newRect, oldRect) {
             var rect = { x: 0, y: 0, width: 0, height: 0 };
             var newRectY2 = toY2(newRect);
             var oldRectY2 = toY2(oldRect);
@@ -317,7 +321,7 @@ var Columns = /** @class */ (function (_super) {
             }
             return rect;
         };
-        _this.limit = 2;
+        _this.limit = 4;
         return _this;
     }
     Columns.prototype.reset = function () { };

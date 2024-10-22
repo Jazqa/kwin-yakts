@@ -14,7 +14,7 @@ export class Columns extends BaseLayout {
 
   constructor(rect: QRect) {
     super(rect);
-    this.limit = 2;
+    this.limit = 4;
   }
 
   adjustRect = (newRect: QRect) => {
@@ -39,13 +39,17 @@ export class Columns extends BaseLayout {
     this.resetSeparators(windows);
 
     for (var i = 0; i < windows.length; i++) {
-      const j = i + 1;
-      const d = windows.length / j;
-      const base = this.rect.x + this.rect.width / d;
+      // Width: 1000
+      // Separators: [250, 500, 750, 1000]
+      const seq = i + 1; // 0-index to 1-index: [1st, 2nd, 3rd, 4th]
+      const ratio = windows.length / seq; // 4 separators: [4.0, 2.0, 1.33, 1.0]
+      const base = this.rect.x + this.rect.width / ratio; // 4 positions: [250, 500, 750, 1000]
+
       const res = this.resized[i] || 0;
       this.separators[i] = base + res;
     }
 
+    // Calculates tile rects based on the separators
     const tiles = [];
     for (var i = 0; i < this.separators.length; i++) {
       let end = this.separators[i];
@@ -89,17 +93,17 @@ export class Columns extends BaseLayout {
       }
     }
 
-    const sides = this.checkSides(i, oldRect, newRect);
+    const overlap = this.resizeLayout(i, oldRect, newRect);
 
-    // Stop resizing from rect sides
-    if (i < 0 || i === this.separators.length - 1) return sides;
+    // Stops resizing from rect edges
+    if (i < 0 || i === this.separators.length - 1) return overlap;
 
     let diff = oldRect.width - newRect.width;
     if (separatorDir > 0) {
       diff = newRect.width - oldRect.width;
     }
 
-    // Stops resizing over rect sides and other separators
+    // Stops resizing over rect edges and other separators
     const prevSeparator = i === 0 ? this.rect.x : this.separators[i - 1];
     const minX = prevSeparator + this.minWindowWidth;
     if (this.separators[i] + diff <= minX) {
@@ -115,10 +119,11 @@ export class Columns extends BaseLayout {
     if (!this.resized[i]) this.resized[i] = 0;
     this.resized[i] = this.resized[i] + diff;
 
-    return sides;
+    return overlap;
   };
 
-  checkSides = (index: number, newRect: QRect, oldRect: QRect): QRect => {
+  // Calculates how much resizeWindow is trying to resize over this layout's rect (used to resize layouts in layouts that combine layouts)
+  resizeLayout = (index: number, newRect: QRect, oldRect: QRect): QRect => {
     const rect: QRect = { x: 0, y: 0, width: 0, height: 0 };
 
     const newRectY2 = toY2(newRect);
