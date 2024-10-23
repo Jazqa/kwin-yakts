@@ -3,7 +3,6 @@ import { Output } from "./output";
 import { KWinOutput, KWinVirtualDesktop } from "./types/kwin";
 import { QRect } from "./types/qt";
 import { Window } from "./window";
-import { WM } from "./wm";
 
 // 2ed6
 // Used to fetch configuration values for individual outputs (configuration value format: kcfg_<key>_<index>)
@@ -24,12 +23,10 @@ export const kwinDesktopIndex = (kwinDesktop: KWinVirtualDesktop) => {
 };
 
 export class Desktop {
-  wm: WM;
   kwin: KWinVirtualDesktop;
   outputs: Array<Output> = [];
 
-  constructor(wm: WM, kwin: KWinVirtualDesktop) {
-    this.wm = wm;
+  constructor(kwin: KWinVirtualDesktop) {
     this.kwin = kwin;
     workspace.screens.forEach(this.addKwinOutput);
   }
@@ -40,16 +37,12 @@ export class Desktop {
     if (this.outputs.some((output) => output.kwin.serialNumber === kwinOutput.serialNumber)) return;
 
     const rect = maximizeArea(kwinOutput, this.kwin);
-    const output = new Output(this.wm, kwinOutput, rect);
+    const output = new Output(kwinOutput, rect);
     this.outputs.push(output);
   };
 
   filterWindows = (windows: Array<Window>) => {
-    return windows.filter((window) => {
-      // Window is not on this desktop
-      if (!window.isOnKwinDesktop(this.kwin)) return false;
-      return true;
-    });
+    return windows.filter((window) => window.kwin.desktops.length === 1 && window.kwin.desktops[0].id === this.kwin.id);
   };
 
   tileWindows = (windows: Array<Window>) => {

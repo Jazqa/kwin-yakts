@@ -1,7 +1,6 @@
-import { rectClone } from "../math";
+import { Rect } from "../rect";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
-import { Layout } from "../types/layout";
 import { BaseLayout } from "./BaseLayout";
 
 export class Rows extends BaseLayout {
@@ -16,11 +15,6 @@ export class Rows extends BaseLayout {
     super(rect);
     this.limit = this.rect.height / this.minWindowHeight;
   }
-
-  adjustRect = (newRect: QRect) => {
-    this.rect = newRect;
-    this.reset();
-  };
 
   resetSeparators = (windows: Array<Window>) => {
     if (windows.length > this.separators.length) {
@@ -65,7 +59,7 @@ export class Rows extends BaseLayout {
   };
 
   resizeWindow = (window: Window, oldRect: QRect) => {
-    const newRect = rectClone(window.kwin.frameGeometry);
+    const newRect = new Rect(window.kwin.frameGeometry);
 
     let y = oldRect.y;
 

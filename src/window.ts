@@ -1,56 +1,52 @@
 import config from "./config";
 import { maximizeArea } from "./kwin";
-import { rectCenterTo, rectClone, rectGap } from "./math";
 import { outputIndex } from "./output";
+import { Rect } from "./rect";
 import { KWinOutput, KWinVirtualDesktop, KWinWindow } from "./types/kwin";
 import { QRect } from "./types/qt";
-import { WM } from "./wm";
 
 export class Window {
-  wm: WM;
   kwin: KWinWindow;
 
   // Enabled  can      be changed manually by the user or automatically by the script
   // Disabled can only be changed                         automatically by the script
   // In practice, disabled = true tiles can be re-enabled automatically by the script, but disabled = false tiles can only be re-enabled manually by the user
-  enabled: boolean = true;
-  disabled: boolean = false;
+  enabled: boolean;
+  disabled: boolean;
 
-  kwinOutput: KWinOutput;
-  kwinDesktops: Array<KWinVirtualDesktop>;
+  private kwinOutput: KWinOutput;
+  private kwinDesktops: Array<KWinVirtualDesktop>;
 
-  move: boolean;
-  resize: boolean;
+  private move: boolean;
+  private resize: boolean;
 
-  isKeyboard: boolean;
+  private oldRect: QRect;
 
-  originalGeometry: QRect;
-  oldGeometry: QRect;
-  oldGeometryKeyboard: QRect | undefined;
+  get enabledByDefault() {
+    return (
+      !this.kwin.minimized &&
+      !this.kwin.fullScreen &&
+      !this.isMaximized() &&
+      this.kwin.frameGeometry.width >= config.minWidth &&
+      this.kwin.frameGeometry.height >= config.minHeight &&
+      config.auto[outputIndex(this.kwin.output)] &&
+      config.processes.indexOf(this.kwin.resourceClass.toString().toLowerCase()) === -1 &&
+      config.processes.indexOf(this.kwin.resourceName.toString().toLowerCase()) === -1 &&
+      !config.captions.some((caption) => this.kwin.caption.toLowerCase().includes(caption.toLowerCase()))
+    );
+  }
 
-  isAutoTilingEnabled = () => {
-    return config.auto[outputIndex(this.kwin.output)];
-  };
-
-  isDisabledByDefault = () => {
-    return !this.isAutoTilingEnabled() || this.kwin.minimized || this.kwin.fullScreen || this.isMaximized();
-  };
-
-  // cf3f
-  isOnKwinDesktop = (kwinDesktop: KWinVirtualDesktop) => {
-    return this.kwin.desktops.length === 1 && this.kwin.desktops[0].id === kwinDesktop.id;
-  };
-
-  constructor(wm: WM, kwin: KWinWindow) {
-    this.wm = wm;
+  constructor(kwin: KWinWindow) {
     this.kwin = kwin;
 
     this.kwinOutput = kwin.output;
     this.kwinDesktops = kwin.desktops;
-    this.originalGeometry = kwin.frameGeometry;
 
     this.move = false;
     this.resize = false;
+
+    this.disabled = !this.enabledByDefault;
+    this.enabled = this.enabledByDefault;
 
     this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
     this.kwin.outputChanged.connect(this.outputChanged);
@@ -58,76 +54,61 @@ export class Window {
     this.kwin.maximizedChanged.connect(this.maximizedChanged);
     this.kwin.minimizedChanged.connect(this.minimizedChanged);
     this.kwin.fullScreenChanged.connect(this.fullScreenChanged);
-    this.kwin.frameGeometryChanged.connect(this.frameGeometryChanged);
-    this.kwin.frameGeometryAboutToChange.connect(this.frameGeometryAboutToChange);
-
-    if (this.isDisabledByDefault()) {
-      this.disable();
-    }
   }
 
-  deconstruct = () => {
+  remove = () => {
     this.kwin.moveResizedChanged.disconnect(this.moveResizedChanged);
     this.kwin.outputChanged.disconnect(this.outputChanged);
     this.kwin.desktopsChanged.disconnect(this.desktopsChanged);
     this.kwin.maximizedChanged.disconnect(this.maximizedChanged);
     this.kwin.fullScreenChanged.disconnect(this.fullScreenChanged);
-    this.kwin.frameGeometryChanged.disconnect(this.frameGeometryChanged);
-    this.kwin.frameGeometryAboutToChange.disconnect(this.frameGeometryAboutToChange);
+    this.affectedOthers(this);
   };
 
   // @param manual  - Indicates whether the action was performed manually by the user or automatically by the script
-  // @param capture - Inciates whether the window's frameGeometry should be used as its originalGeometry when restored later
-  enable = (manual?: boolean, capture?: boolean) => {
-    if (manual || (this.disabled && this.isAutoTilingEnabled())) {
+  // @param push    - Indicates whether the window should be moved to the bottom of the Window stack
+  enable = (manual?: boolean, push?: boolean) => {
+    if (manual || (this.disabled && !this.enabledByDefault)) {
       this.disabled = false;
       this.enabled = true;
-
-      if (capture) {
-        this.originalGeometry = rectClone(this.kwin.frameGeometry);
+      if (push) {
+        this.movedToBottom(this);
       }
     }
   };
 
   // @param manual  - Indicates whether the action was performed manually by the user or automatically by the script
-  // @param restore - Indicates the window's frameGeometry should be restored to its original rect
-  disable = (manual?: boolean, restore?: boolean) => {
+  disable = (manual?: boolean) => {
     if (!manual) this.disabled = true;
     this.enabled = false;
-
-    if (restore) {
-      this.kwin.frameGeometry = rectCenterTo(this.originalGeometry, this.kwin.output.geometry);
-      workspace.activeWindow = this.kwin;
-    }
+    this.affectedOthers(this);
   };
 
   // b43a
   setFrameGeometry = (rect: QRect) => {
-    rect = rectGap(rect, config.gap[outputIndex(this.kwin.output)]);
+    const frameGeometry = new Rect(rect).gap(config.gap[outputIndex(this.kwin.output)]);
 
     if (rect.width < this.kwin.minSize.width) {
-      rect.width = this.kwin.minSize.width;
+      frameGeometry.width = this.kwin.minSize.width;
     }
 
     if (rect.height < this.kwin.minSize.height) {
-      rect.height = this.kwin.minSize.height;
+      frameGeometry.height = this.kwin.minSize.height;
     }
 
-    this.kwin.frameGeometry = rect;
-
-    this.oldGeometryKeyboard = undefined;
+    this.kwin.frameGeometry = frameGeometry.kwin;
   };
 
   startMove = (oldRect: QRect) => {
     this.move = true;
-    this.oldGeometry = rectClone(oldRect);
+    this.oldRect = new Rect(oldRect).kwin;
   };
 
   stopMove = () => {
     if (this.kwinOutput !== this.kwin.output) {
       this.outputChanged(true);
     } else if (this.enabled) {
-      this.wm.moveWindow(this, this.oldGeometry);
+      this.positionChanged(this, this.oldRect);
     }
 
     this.move = false;
@@ -135,11 +116,11 @@ export class Window {
 
   startResize = (oldRect: QRect) => {
     this.resize = true;
-    this.oldGeometry = rectClone(oldRect);
+    this.oldRect = new Rect(oldRect).kwin;
   };
 
   stopResize = () => {
-    this.wm.resizeWindow(this, this.oldGeometry);
+    this.sizeChanged(this, this.oldRect);
     this.resize = false;
   };
 
@@ -157,35 +138,12 @@ export class Window {
     }
   };
 
-  // frameGeometryAboutToChange and frameGeometryChanged are used only for moving windows via KWin's default shortcuts
-  // _isKeyboard and _oldGeometryKeyboard are used to identify signals triggered by the shortcut
-  frameGeometryAboutToChange = () => {
-    if (!this.wm.tiling && !this.kwin.move && !this.kwin.resize && !this.move && !this.resize) {
-      this.isKeyboard = true;
-    }
-  };
-  frameGeometryChanged = (oldRect: QRect) => {
-    if (!this.wm.tiling && this.kwin.move && this.kwin.resize && !this.move && !this.resize && this.isKeyboard) {
-      if (this.oldGeometryKeyboard) {
-        this.startMove(this.oldGeometryKeyboard);
-        this.stopMove();
-        this.oldGeometryKeyboard = undefined;
-      } else {
-        this.oldGeometryKeyboard = oldRect;
-      }
-
-      this.isKeyboard = false;
-    }
-  };
-
   fullScreenChanged = () => {
     if (this.kwin.fullScreen) {
       this.disable();
     } else {
-      this.enable();
+      this.enable(false, false);
     }
-
-    this.wm.tileWindow(this);
   };
 
   maximizedChanged = () => {
@@ -194,20 +152,16 @@ export class Window {
     if (this.isMaximized()) {
       this.disable();
     } else {
-      this.enable();
+      this.enable(false, false);
     }
-
-    this.wm.tileWindow(this);
   };
 
   minimizedChanged = () => {
     if (this.kwin.minimized) {
       this.disable();
     } else {
-      this.enable();
+      this.enable(false, true);
     }
-
-    this.wm.pushWindow(this);
   };
 
   isMaximized = () => {
@@ -227,13 +181,11 @@ export class Window {
     if (force || !this.move) {
       this.kwinOutput = this.kwin.output;
 
-      if (this.isAutoTilingEnabled()) {
-        this.enable();
+      if (this.enabledByDefault) {
+        this.enable(false, true);
       } else {
         this.disable();
       }
-
-      this.wm.pushWindow(this);
     }
   };
 
@@ -242,10 +194,15 @@ export class Window {
     if (this.kwin.desktops.length > 1) {
       this.disable();
     } else if (this.kwin.desktops.length === 1) {
-      this.enable();
+      this.enable(false, true);
     }
 
     this.kwinDesktops = this.kwin.desktops;
-    this.wm.pushWindow(this);
   };
+
+  // Callbacks from WM
+  affectedOthers: (window: Window) => void; // Only if the effect ISN'T communicated by one of the signals below
+  movedToBottom: (window: Window) => void;
+  positionChanged: (window: Window, oldRect: QRect) => void;
+  sizeChanged: (window: Window, oldRect: QRect) => void;
 }

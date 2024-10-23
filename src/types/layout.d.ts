@@ -27,6 +27,11 @@ export interface Layout {
   limit: number;
 
   /*
+   *  @param rect     - QRect of the Layout
+   */
+  setRect: (rect: QRect) => void;
+
+  /*
    *  Tiles all windows according to Layout's tiling rules
    *
    *  @param windows  - Array of windows that exist on the layout
@@ -41,13 +46,6 @@ export interface Layout {
    *  @param oldRect  - QRect of the window when windowStartUserMovedResized was triggered
    */
   resizeWindow: (window: Window, oldRect: QRect) => QRect | void;
-
-  /*
-   *  Adjusts the available tiling space of the Layout
-   *
-   *  @param rect     - QRect of the Layout
-   */
-  adjustRect: (rect: QRect) => void;
 
   /*
    * Resets the layout to its original state

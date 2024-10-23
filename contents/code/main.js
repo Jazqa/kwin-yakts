@@ -111,83 +111,111 @@ var config = {
     desktops: desktops,
 };
 
-var toX2 = function (rect) {
-    return rect.x + rect.width;
-};
-var toY2 = function (rect) {
-    return rect.y + rect.height;
-};
-var rectClone = function (rect) {
-    var x = rect.x, y = rect.y, width = rect.width, height = rect.height;
-    return { x: x, y: y, width: width, height: height };
-};
-var rectCombine = function (rectA, rectB) {
-    var newRect = rectClone(rectA);
-    newRect.x = Math.min(rectA.x, rectB.x);
-    newRect.y = Math.min(rectA.y, rectB.y);
-    var x2 = Math.max(rectA.x + rectA.width, rectB.x + rectB.width);
-    var y2 = Math.max(rectA.y + rectA.height, rectB.y + rectB.height);
-    newRect.width = x2 - newRect.x;
-    newRect.height = y2 - newRect.y;
-    return newRect;
-};
-var rectAdd = function (rectA, rectB) {
-    var newRect = rectClone(rectA);
-    newRect.x += rectB.x;
-    newRect.y += rectB.y;
-    newRect.width -= rectB.width + rectB.x;
-    newRect.height -= rectB.height + rectB.y;
-    return newRect;
-};
-// No clue what happens when with and height are modified in the same call, but it's completely broken
-// Values look fine on JavaScript side of things, but windows go crazy
-var rectDivide = function (rect, size) {
-    var rectA = rectClone(rect);
-    // rectA.width = rect.width * size.width;
-    rectA.height = rect.height * size.height;
-    var rectB = rectClone(rectA);
-    // rectB.x = rectA.x + rectA.width;
-    rectB.y = rectA.y + rectA.height;
-    return [rectA, rectB];
-};
-var rectGap = function (rect, gap) {
-    var x = rect.x, y = rect.y, width = rect.width, height = rect.height;
-    x += gap;
-    y += gap;
-    width -= gap * 2;
-    height -= gap * 2;
-    return { x: x, y: y, width: width, height: height };
-};
-var rectMargin = function (rect, margin) {
-    var x = rect.x, y = rect.y, width = rect.width, height = rect.height;
-    x += margin.left;
-    y += margin.top;
-    width -= margin.left + margin.right;
-    height -= margin.top + margin.bottom;
-    return { x: x, y: y, width: width, height: height };
-};
-var rectCenterTo = function (rectA, rectB) {
-    var x = rectA.x, y = rectA.y, width = rectA.width, height = rectA.height;
-    x = (rectB.x + rectB.width) * 0.5 - width * 0.5;
-    y = (rectB.y + rectB.height) * 0.5 - height * 0.5;
-    return { x: x, y: y, width: width, height: height };
-};
-var distanceTo = function (rectA, rectB) {
-    return Math.abs(rectA.x - rectB.x) + Math.abs(rectA.y - rectB.y);
-};
 var inRange = function (value, min, max) {
     return value >= min && value <= max;
 };
-var overlapsWith = function (rectA, rectB) {
-    var x = inRange(rectA.x, rectB.x, rectB.x + rectB.width) || inRange(rectB.x, rectA.x, rectA.x + rectA.width);
-    var y = inRange(rectA.y, rectB.y, rectB.y + rectB.height) || inRange(rectB.y, rectA.y, rectA.y + rectA.height);
-    return x && y;
-};
+var Rect = /** @class */ (function () {
+    function Rect(rect) {
+        var _this = this;
+        this.clone = function () {
+            return new Rect(_this);
+        };
+        this.intersects = function (rect) {
+            var x = inRange(_this.x, rect.x, rect.x + rect.width) || inRange(rect.x, _this.x, _this.x + _this.width);
+            var y = inRange(_this.y, rect.y, rect.y + rect.height) || inRange(rect.y, _this.y, _this.y + _this.height);
+            return x && y;
+        };
+        this.distance = function (rect) {
+            return Math.abs(_this.x - rect.x) + Math.abs(_this.y - rect.y);
+        };
+        this.center = function (rect) {
+            _this.x = (rect.x + rect.width) * 0.5 - _this.width * 0.5;
+            _this.y = (rect.y + rect.height) * 0.5 - _this.height * 0.5;
+            return _this;
+        };
+        this.add = function (rect) {
+            _this.x += rect.x;
+            _this.y += rect.y;
+            _this.width -= rect.width + rect.x;
+            _this.height -= rect.height + rect.y;
+            return _this;
+        };
+        this.combine = function (rect) {
+            var x2 = Math.max(_this.x2, rect.x + rect.width);
+            var y2 = Math.max(_this.y2, rect.y + rect.height);
+            _this.x = Math.min(_this.x, rect.x);
+            _this.y = Math.min(_this.y, rect.y);
+            _this.width = x2 - _this.x;
+            _this.height = y2 - _this.y;
+            return _this;
+        };
+        // No clue what happens when with and height are modified in the same call, but it's completely broken
+        // Values look fine on JavaScript side of things, but windows go crazy
+        this.divide = function (point) {
+            // this.width *= point.x;
+            _this.height *= point.y;
+            var rect = new Rect(_this);
+            // rect.x = this.x + this.width;
+            rect.y = _this.y + _this.height;
+            return [_this, rect];
+        };
+        this.gap = function (gap) {
+            _this.x += gap;
+            _this.y += gap;
+            _this.width -= gap * 2;
+            _this.height -= gap * 2;
+            return _this;
+        };
+        this.margin = function (margin) {
+            _this.x += margin.left;
+            _this.y += margin.top;
+            _this.width -= margin.left + margin.right;
+            _this.height -= margin.top + margin.bottom;
+            return _this;
+        };
+        if (!rect)
+            rect = { x: 0, y: 0, width: 0, height: 0 };
+        this.x = rect.x;
+        this.y = rect.y;
+        this.width = rect.width;
+        this.height = rect.height;
+    }
+    Object.defineProperty(Rect.prototype, "kwin", {
+        get: function () {
+            return {
+                x: this.x,
+                y: this.y,
+                width: this.width,
+                height: this.height,
+            };
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(Rect.prototype, "x2", {
+        get: function () {
+            return this.x + this.width;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(Rect.prototype, "y2", {
+        get: function () {
+            return this.y + this.height;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    return Rect;
+}());
 
 var id = 0;
 var BaseLayout = /** @class */ (function () {
     function BaseLayout(rect) {
-        this.adjustRect = function (newRect) { };
+        var _this = this;
+        this.setRect = function (newRect) {
+            _this.rect = newRect;
+        };
         this.tileWindows = function (windows) { };
         this.resizeWindow = function (window, oldRect) { };
         this.id = id.toString();
@@ -221,10 +249,6 @@ var Columns = /** @class */ (function (_super) {
         _this.minWindowWidth = 500;
         _this.separators = [];
         _this.resized = [];
-        _this.adjustRect = function (newRect) {
-            _this.rect = newRect;
-            _this.reset();
-        };
         _this.resetSeparators = function (windows) {
             if (windows.length > _this.separators.length) {
                 for (var i = 0; i < _this.resized.length; i++) {
@@ -263,7 +287,7 @@ var Columns = /** @class */ (function (_super) {
             });
         };
         _this.resizeWindow = function (window, oldRect) {
-            var newRect = rectClone(window.kwin.frameGeometry);
+            var newRect = new Rect(window.kwin.frameGeometry);
             var x = oldRect.x;
             var separatorDir = -1;
             if (newRect.x - oldRect.x === 0) {
@@ -308,14 +332,12 @@ var Columns = /** @class */ (function (_super) {
         };
         // Calculates how much resizeWindow is trying to resize over this layout's rect (used to resize layouts in layouts that combine layouts)
         _this.resizeLayout = function (index, newRect, oldRect) {
-            var rect = { x: 0, y: 0, width: 0, height: 0 };
-            var newRectY2 = toY2(newRect);
-            var oldRectY2 = toY2(oldRect);
+            var rect = new Rect();
             if (newRect.y !== oldRect.y) {
                 rect.y = oldRect.y - newRect.y;
             }
-            if (newRectY2 !== oldRectY2) {
-                rect.height = oldRectY2 - newRectY2;
+            else if (newRect.height !== oldRect.height) {
+                rect.height = oldRect.height - newRect.height;
             }
             if (index < 0 && newRect.width !== oldRect.width) {
                 rect.x = newRect.width - oldRect.width;
@@ -354,15 +376,14 @@ var Full = /** @class */ (function (_super) {
         _this.name = "Full";
         _this.limit = 0;
         _this.layouts = [];
-        _this.adjustRect = function (newRect) { };
         _this.addLayout = function (layout) {
             _this.layouts.push(layout);
             _this.limit += layout.limit;
         };
         _this.createLayout = function (layoutA) {
-            var rects = rectDivide(layoutA.rect, { width: 1, height: 0.5 });
-            layoutA.adjustRect(rects[0]);
-            var layoutB = new Columns(rects[1]);
+            var _a = new Rect(layoutA.rect).divide({ x: 1, y: 0.5 }), rectA = _a[0], rectB = _a[1];
+            layoutA.setRect(rectA);
+            var layoutB = new Columns(rectB);
             _this.addLayout(layoutB);
         };
         _this.removeLayout = function () {
@@ -370,37 +391,39 @@ var Full = /** @class */ (function (_super) {
             var layoutA = _this.layouts[length - 2];
             var layoutB = _this.layouts.splice(length - 1)[0];
             _this.limit -= layoutB.limit;
-            layoutA.adjustRect(rectCombine(layoutA.rect, layoutB.rect));
+            layoutA.setRect(new Rect(layoutA.rect).combine(layoutB.rect));
         };
         // @param layoutA - The layout in which a window triggered the resize event
         // @param rect    - "Raw" resize rect from the resize event (even if it goes way over bounds)
         _this.resizeLayout = function (layoutA, rect) {
             // Actual resize rect used to resize layoutA (has values only on overlap)
-            var rectA = { x: 0, y: 0, width: 0, height: 0 };
+            var rectA = new Rect(layoutA.rect);
+            var overlapA = new Rect();
             _this.layouts.forEach(function (layoutB) {
                 if (layoutB.id === layoutA.id)
                     return;
                 // Overlap rect between layoutB and layoutA
-                var rectB = { x: 0, y: 0, width: 0, height: 0 };
-                if (layoutA.rect.y === toY2(layoutB.rect)) {
-                    rectA.y = rect.y;
-                    rectB.height = -rect.y;
+                var rectB = new Rect(layoutB.rect);
+                var overlapB = new Rect();
+                if (rectA.y === rectB.y2) {
+                    overlapA.y = rect.y;
+                    overlapB.height = -rect.y;
                 }
-                if (layoutB.rect.y === toY2(layoutA.rect)) {
-                    rectB.y = rect.height;
-                    rectA.height = -rect.height;
+                if (rectB.y === rectA.y2) {
+                    overlapB.y = rect.height;
+                    overlapA.height = -rect.height;
                 }
-                if (layoutA.rect.x === toX2(layoutB.rect)) {
-                    rectA.x = rect.x;
-                    rectB.width = -rect.x;
+                if (rectA.x === rectB.x2) {
+                    overlapA.x = rect.x;
+                    overlapB.width = -rect.x;
                 }
-                if (layoutB.rect.x === toX2(layoutA.rect)) {
-                    rectB.x = rect.width;
-                    rectA.width = -rect.width;
+                if (rectB.x === rectA.x2) {
+                    overlapB.x = rect.width;
+                    overlapA.width = -rect.width;
                 }
-                layoutB.adjustRect(rectAdd(layoutB.rect, rectB));
+                layoutB.setRect(new Rect(rectB).add(overlapB));
             });
-            layoutA.adjustRect(rectAdd(layoutA.rect, rectA));
+            layoutA.setRect(new Rect(rectA).add(overlapA));
         };
         _this.tileWindows = function (windows) {
             var length = _this.layouts.length;
@@ -421,10 +444,10 @@ var Full = /** @class */ (function (_super) {
         };
         _this.resizeWindow = function (window, oldRect) {
             _this.layouts.some(function (layout) {
-                if (overlapsWith(layout.rect, oldRect)) {
-                    var edge = layout.resizeWindow(window, oldRect);
-                    if (edge) {
-                        _this.resizeLayout(layout, edge);
+                if (new Rect(oldRect).intersects(layout.rect)) {
+                    var rect = layout.resizeWindow(window, oldRect);
+                    if (rect) {
+                        _this.resizeLayout(layout, rect);
                     }
                     return true;
                 }
@@ -473,15 +496,10 @@ var outputIndex = function (kwinOutput) {
     return index;
 };
 var Output = /** @class */ (function () {
-    function Output(wm, kwin, rect) {
+    function Output(kwin, rect) {
         var _this = this;
         this.filterWindows = function (windows) {
-            return windows.filter(function (window) {
-                // Window is not on this output
-                if (window.kwin.output.serialNumber !== _this.kwin.serialNumber)
-                    return false;
-                return true;
-            });
+            return windows.filter(function (window) { return window.kwin.output.serialNumber === _this.kwin.serialNumber; });
         };
         this.tileWindows = function (windows) {
             _this.layout.tileWindows(_this.filterWindows(windows));
@@ -489,11 +507,10 @@ var Output = /** @class */ (function () {
         this.resizeWindow = function (window, oldRect) {
             _this.layout.resizeWindow(window, oldRect);
         };
-        this.wm = wm;
         this.kwin = kwin;
         this.index = outputIndex(kwin);
         this.margin = config.margin[this.index];
-        this.layout = new Layouts[config.layout[this.index]](rectMargin(rect, this.margin));
+        this.layout = new Layouts[config.layout[this.index]](new Rect(rect).margin(this.margin));
         var limit = config.limit[this.index];
         if (limit > -1) {
             this.layout.limit = Math.min(this.layout.limit, limit);
@@ -509,7 +526,7 @@ var kwinDesktopIndex = function (kwinDesktop) {
     });
 };
 var Desktop = /** @class */ (function () {
-    function Desktop(wm, kwin) {
+    function Desktop(kwin) {
         var _this = this;
         this.outputs = [];
         this.addKwinOutput = function (kwinOutput) {
@@ -518,16 +535,11 @@ var Desktop = /** @class */ (function () {
             if (_this.outputs.some(function (output) { return output.kwin.serialNumber === kwinOutput.serialNumber; }))
                 return;
             var rect = maximizeArea(kwinOutput, _this.kwin);
-            var output = new Output(_this.wm, kwinOutput, rect);
+            var output = new Output(kwinOutput, rect);
             _this.outputs.push(output);
         };
         this.filterWindows = function (windows) {
-            return windows.filter(function (window) {
-                // Window is not on this desktop
-                if (!window.isOnKwinDesktop(_this.kwin))
-                    return false;
-                return true;
-            });
+            return windows.filter(function (window) { return window.kwin.desktops.length === 1 && window.kwin.desktops[0].id === _this.kwin.id; });
         };
         this.tileWindows = function (windows) {
             _this.outputs.forEach(function (output) { return output.tileWindows(_this.filterWindows(windows)); });
@@ -536,7 +548,6 @@ var Desktop = /** @class */ (function () {
             var output = _this.outputs.find(function (output) { return output.kwin.serialNumber === window.kwin.output.serialNumber; });
             output.resizeWindow(window, oldRect);
         };
-        this.wm = wm;
         this.kwin = kwin;
         workspace.screens.forEach(this.addKwinOutput);
     }
@@ -544,85 +555,64 @@ var Desktop = /** @class */ (function () {
 }());
 
 var Window = /** @class */ (function () {
-    function Window(wm, kwin) {
+    function Window(kwin) {
         var _this = this;
-        // Enabled  can      be changed manually by the user or automatically by the script
-        // Disabled can only be changed                         automatically by the script
-        // In practice, disabled = true tiles can be re-enabled automatically by the script, but disabled = false tiles can only be re-enabled manually by the user
-        this.enabled = true;
-        this.disabled = false;
-        this.isAutoTilingEnabled = function () {
-            return config.auto[outputIndex(_this.kwin.output)];
-        };
-        this.isDisabledByDefault = function () {
-            return !_this.isAutoTilingEnabled() || _this.kwin.minimized || _this.kwin.fullScreen || _this.isMaximized();
-        };
-        // cf3f
-        this.isOnKwinDesktop = function (kwinDesktop) {
-            return _this.kwin.desktops.length === 1 && _this.kwin.desktops[0].id === kwinDesktop.id;
-        };
-        this.deconstruct = function () {
+        this.remove = function () {
             _this.kwin.moveResizedChanged.disconnect(_this.moveResizedChanged);
             _this.kwin.outputChanged.disconnect(_this.outputChanged);
             _this.kwin.desktopsChanged.disconnect(_this.desktopsChanged);
             _this.kwin.maximizedChanged.disconnect(_this.maximizedChanged);
             _this.kwin.fullScreenChanged.disconnect(_this.fullScreenChanged);
-            _this.kwin.frameGeometryChanged.disconnect(_this.frameGeometryChanged);
-            _this.kwin.frameGeometryAboutToChange.disconnect(_this.frameGeometryAboutToChange);
+            _this.affectedOthers(_this);
         };
         // @param manual  - Indicates whether the action was performed manually by the user or automatically by the script
-        // @param capture - Inciates whether the window's frameGeometry should be used as its originalGeometry when restored later
-        this.enable = function (manual, capture) {
-            if (manual || (_this.disabled && _this.isAutoTilingEnabled())) {
+        // @param push    - Indicates whether the window should be moved to the bottom of the Window stack
+        this.enable = function (manual, push) {
+            if (manual || (_this.disabled && !_this.enabledByDefault)) {
                 _this.disabled = false;
                 _this.enabled = true;
-                if (capture) {
-                    _this.originalGeometry = rectClone(_this.kwin.frameGeometry);
+                if (push) {
+                    _this.movedToBottom(_this);
                 }
             }
         };
         // @param manual  - Indicates whether the action was performed manually by the user or automatically by the script
-        // @param restore - Indicates the window's frameGeometry should be restored to its original rect
-        this.disable = function (manual, restore) {
+        this.disable = function (manual) {
             if (!manual)
                 _this.disabled = true;
             _this.enabled = false;
-            if (restore) {
-                _this.kwin.frameGeometry = rectCenterTo(_this.originalGeometry, _this.kwin.output.geometry);
-                workspace.activeWindow = _this.kwin;
-            }
+            _this.affectedOthers(_this);
         };
         // b43a
         this.setFrameGeometry = function (rect) {
-            rect = rectGap(rect, config.gap[outputIndex(_this.kwin.output)]);
+            var frameGeometry = new Rect(rect).gap(config.gap[outputIndex(_this.kwin.output)]);
             if (rect.width < _this.kwin.minSize.width) {
-                rect.width = _this.kwin.minSize.width;
+                frameGeometry.width = _this.kwin.minSize.width;
             }
             if (rect.height < _this.kwin.minSize.height) {
-                rect.height = _this.kwin.minSize.height;
+                frameGeometry.height = _this.kwin.minSize.height;
             }
-            _this.kwin.frameGeometry = rect;
-            _this.oldGeometryKeyboard = undefined;
+            _this.kwin.frameGeometry = frameGeometry.kwin;
         };
         this.startMove = function (oldRect) {
             _this.move = true;
-            _this.oldGeometry = rectClone(oldRect);
+            _this.oldRect = new Rect(oldRect).kwin;
         };
         this.stopMove = function () {
             if (_this.kwinOutput !== _this.kwin.output) {
                 _this.outputChanged(true);
             }
             else if (_this.enabled) {
-                _this.wm.moveWindow(_this, _this.oldGeometry);
+                _this.positionChanged(_this, _this.oldRect);
             }
             _this.move = false;
         };
         this.startResize = function (oldRect) {
             _this.resize = true;
-            _this.oldGeometry = rectClone(oldRect);
+            _this.oldRect = new Rect(oldRect).kwin;
         };
         this.stopResize = function () {
-            _this.wm.resizeWindow(_this, _this.oldGeometry);
+            _this.sizeChanged(_this, _this.oldRect);
             _this.resize = false;
         };
         this.moveResizedChanged = function () {
@@ -642,34 +632,13 @@ var Window = /** @class */ (function () {
                 _this.stopResize();
             }
         };
-        // frameGeometryAboutToChange and frameGeometryChanged are used only for moving windows via KWin's default shortcuts
-        // _isKeyboard and _oldGeometryKeyboard are used to identify signals triggered by the shortcut
-        this.frameGeometryAboutToChange = function () {
-            if (!_this.wm.tiling && !_this.kwin.move && !_this.kwin.resize && !_this.move && !_this.resize) {
-                _this.isKeyboard = true;
-            }
-        };
-        this.frameGeometryChanged = function (oldRect) {
-            if (!_this.wm.tiling && _this.kwin.move && _this.kwin.resize && !_this.move && !_this.resize && _this.isKeyboard) {
-                if (_this.oldGeometryKeyboard) {
-                    _this.startMove(_this.oldGeometryKeyboard);
-                    _this.stopMove();
-                    _this.oldGeometryKeyboard = undefined;
-                }
-                else {
-                    _this.oldGeometryKeyboard = oldRect;
-                }
-                _this.isKeyboard = false;
-            }
-        };
         this.fullScreenChanged = function () {
             if (_this.kwin.fullScreen) {
                 _this.disable();
             }
             else {
-                _this.enable();
+                _this.enable(false, false);
             }
-            _this.wm.tileWindow(_this);
         };
         this.maximizedChanged = function () {
             if (_this.kwin.fullScreen)
@@ -678,18 +647,16 @@ var Window = /** @class */ (function () {
                 _this.disable();
             }
             else {
-                _this.enable();
+                _this.enable(false, false);
             }
-            _this.wm.tileWindow(_this);
         };
         this.minimizedChanged = function () {
             if (_this.kwin.minimized) {
                 _this.disable();
             }
             else {
-                _this.enable();
+                _this.enable(false, true);
             }
-            _this.wm.pushWindow(_this);
         };
         this.isMaximized = function () {
             var desktop = _this.kwin.desktops[0] || workspace.desktops[0];
@@ -704,13 +671,12 @@ var Window = /** @class */ (function () {
         this.outputChanged = function (force) {
             if (force || !_this.move) {
                 _this.kwinOutput = _this.kwin.output;
-                if (_this.isAutoTilingEnabled()) {
-                    _this.enable();
+                if (_this.enabledByDefault) {
+                    _this.enable(false, true);
                 }
                 else {
                     _this.disable();
                 }
-                _this.wm.pushWindow(_this);
             }
         };
         // cf3f
@@ -719,41 +685,50 @@ var Window = /** @class */ (function () {
                 _this.disable();
             }
             else if (_this.kwin.desktops.length === 1) {
-                _this.enable();
+                _this.enable(false, true);
             }
             _this.kwinDesktops = _this.kwin.desktops;
-            _this.wm.pushWindow(_this);
         };
-        this.wm = wm;
         this.kwin = kwin;
         this.kwinOutput = kwin.output;
         this.kwinDesktops = kwin.desktops;
-        this.originalGeometry = kwin.frameGeometry;
         this.move = false;
         this.resize = false;
+        this.disabled = !this.enabledByDefault;
+        this.enabled = this.enabledByDefault;
         this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
         this.kwin.outputChanged.connect(this.outputChanged);
         this.kwin.desktopsChanged.connect(this.desktopsChanged);
         this.kwin.maximizedChanged.connect(this.maximizedChanged);
         this.kwin.minimizedChanged.connect(this.minimizedChanged);
         this.kwin.fullScreenChanged.connect(this.fullScreenChanged);
-        this.kwin.frameGeometryChanged.connect(this.frameGeometryChanged);
-        this.kwin.frameGeometryAboutToChange.connect(this.frameGeometryAboutToChange);
-        if (this.isDisabledByDefault()) {
-            this.disable();
-        }
     }
+    Object.defineProperty(Window.prototype, "enabledByDefault", {
+        get: function () {
+            var _this = this;
+            return (!this.kwin.minimized &&
+                !this.kwin.fullScreen &&
+                !this.isMaximized() &&
+                this.kwin.frameGeometry.width >= config.minWidth &&
+                this.kwin.frameGeometry.height >= config.minHeight &&
+                config.auto[outputIndex(this.kwin.output)] &&
+                config.processes.indexOf(this.kwin.resourceClass.toString().toLowerCase()) === -1 &&
+                config.processes.indexOf(this.kwin.resourceName.toString().toLowerCase()) === -1 &&
+                !config.captions.some(function (caption) { return _this.kwin.caption.toLowerCase().includes(caption.toLowerCase()); }));
+        },
+        enumerable: false,
+        configurable: true
+    });
     return Window;
 }());
 
 var WM = /** @class */ (function () {
     function WM() {
         var _this = this;
-        this.tiling = true;
         this.desktops = [];
         this.windows = [];
-        // KWin Actions
-        this.actionsMenu = function (kwinWindow) {
+        // KWin ActionsMenu
+        this.kwinActionsMenuEntry = function (kwinWindow) {
             var window = _this.windows.find(function (window) { return window.kwin.internalId === kwinWindow.internalId; });
             if (window) {
                 return {
@@ -774,36 +749,33 @@ var WM = /** @class */ (function () {
             // Desktop is already initialized
             if (_this.desktops.some(function (desktop) { return desktop.kwin.id === kwinDesktop.id; }))
                 return;
-            var desktop = new Desktop(_this, kwinDesktop);
+            var desktop = new Desktop(kwinDesktop);
             _this.desktops.push(desktop);
         };
         // KWin Windows
-        this.addKwinWindow = function (kwinWindow) {
+        this.addKwinWindow = function (kwinWindow, loop) {
             if (_this.isKwinWindowAllowed(kwinWindow)) {
-                var window_1 = new Window(_this, kwinWindow);
+                var window_1 = new Window(kwinWindow);
+                window_1.affectedOthers = function (window) { return _this.windowAffectedOthers(window); };
+                window_1.movedToBottom = function (window) { return _this.windowMovedToBottom(window); };
+                window_1.positionChanged = function (window, oldRect) { return _this.windowPositionChanged(window, oldRect); };
+                window_1.sizeChanged = function (window, oldRect) { return _this.windowSizeChanged(window, oldRect); };
                 _this.windows.push(window_1);
-                _this.tileWindows();
+                if (!loop) {
+                    _this.windowAffectedOthers(window_1);
+                }
             }
         };
         this.removeKwinWindow = function (kwinWindow) {
             var index = _this.windows.findIndex(function (window) { return window.kwin.internalId === kwinWindow.internalId; });
             var window = _this.windows[index];
             if (index > -1) {
-                window.deconstruct();
                 _this.windows.splice(index, 1);
-                _this.tileWindows();
+                window.remove();
             }
         };
         this.isKwinWindowAllowed = function (window) {
-            return (window.managed &&
-                window.normalWindow &&
-                window.moveable &&
-                window.resizeable &&
-                window.rect.width >= config.minWidth &&
-                window.rect.height >= config.minHeight &&
-                config.processes.indexOf(window.resourceClass.toString().toLowerCase()) === -1 &&
-                config.processes.indexOf(window.resourceName.toString().toLowerCase()) === -1 &&
-                !config.captions.some(function (caption) { return window.caption.toLowerCase().includes(caption.toLowerCase()); }));
+            return window.managed && window.normalWindow && window.moveable && window.resizeable;
         };
         // Windows
         this.filterWindows = function () {
@@ -812,35 +784,63 @@ var WM = /** @class */ (function () {
             });
         };
         this.tileWindows = function () {
-            if (_this.tiling)
-                return;
-            _this.tiling = true;
             _this.desktops.forEach(function (desktop) {
                 if (desktop.kwin.id === workspace.currentDesktop.id) {
                     desktop.tileWindows(_this.filterWindows());
                 }
             });
-            _this.tiling = false;
         };
         this.swapWindows = function (i, j) {
             var window = _this.windows[i];
             _this.windows[i] = _this.windows[j];
             _this.windows[j] = window;
         };
-        this.moveWindow = function (window, oldRect) {
+        // Window
+        this.toggleActiveWindow = function () {
+            var window = _this.windows.find(function (_a) {
+                var kwin = _a.kwin;
+                return kwin.internalId === workspace.activeWindow.internalId;
+            });
+            _this.toggleWindow(window);
+        };
+        this.toggleWindow = function (window) {
+            if (window.enabled) {
+                window.disable(true);
+                workspace.activeWindow = window.kwin;
+            }
+            else {
+                window.enable(true, true);
+            }
+        };
+        // Window signals
+        this.windowAffectedOthers = function (window) {
+            _this.tileWindows();
+        };
+        this.windowMovedToBottom = function (window) {
             var index = _this.windows.findIndex(function (_a) {
                 var kwin = _a.kwin;
                 return kwin.internalId === window.kwin.internalId;
             });
-            var nearestIndex = _this.windows.findIndex(function (_a) {
-                var kwin = _a.kwin;
-                return kwin.internalId === window.kwin.internalId;
-            });
-            var nearestDistance = distanceTo(window.kwin.frameGeometry, oldRect);
-            _this.windows.forEach(function (_a, index) {
-                var kwin = _a.kwin;
-                if (kwin.internalId !== window.kwin.internalId) {
-                    var distance = distanceTo(kwin.frameGeometry, window.kwin.frameGeometry);
+            if (index > -1) {
+                _this.windows.push(_this.windows.splice(index, 1)[0]);
+            }
+            _this.tileWindows();
+        };
+        this.windowSizeChanged = function (window, oldRect) {
+            var desktop = _this.desktops.find(function (desktop) { return desktop.kwin.id === window.kwin.desktops[0].id; });
+            if (!desktop)
+                return;
+            desktop.resizeWindow(window, oldRect);
+            _this.tileWindows();
+        };
+        this.windowPositionChanged = function (windowA, oldRect) {
+            var index = _this.windows.findIndex(function (windowB) { return windowB.kwin.internalId === windowA.kwin.internalId; });
+            var newRect = new Rect(windowA.kwin.frameGeometry);
+            var nearestIndex = index;
+            var nearestDistance = newRect.distance(oldRect);
+            _this.windows.forEach(function (windowB, index) {
+                if (windowB.kwin.internalId !== windowA.kwin.internalId) {
+                    var distance = newRect.distance(windowB.kwin.frameGeometry);
                     if (distance < nearestDistance) {
                         nearestIndex = index;
                         nearestDistance = distance;
@@ -852,56 +852,16 @@ var WM = /** @class */ (function () {
             }
             _this.tileWindows();
         };
-        this.resizeWindow = function (window, oldRect) {
-            var desktop = _this.desktops.find(function (desktop) { return desktop.kwin.id === window.kwin.desktops[0].id; });
-            if (!desktop)
-                return;
-            desktop.resizeWindow(window, oldRect);
-            _this.tileWindows();
-        };
-        this.tileWindow = function (window) {
-            _this.tileWindows();
-        };
-        this.pushWindow = function (window) {
-            var index = _this.windows.findIndex(function (_a) {
-                var kwin = _a.kwin;
-                return kwin.internalId === window.kwin.internalId;
-            });
-            if (index > -1) {
-                var window_2 = _this.windows[index];
-                _this.windows.splice(index, 1);
-                _this.windows.push(window_2);
-            }
-            _this.tileWindows();
-        };
-        this.toggleActiveWindow = function () {
-            var window = _this.windows.find(function (_a) {
-                var kwin = _a.kwin;
-                return kwin.internalId === workspace.activeWindow.internalId;
-            });
-            _this.toggleWindow(window);
-        };
-        this.toggleWindow = function (window) {
-            if (window.enabled) {
-                window.disable(true);
-                _this.tileWindows();
-                workspace.activeWindow = window.kwin;
-            }
-            else {
-                window.enable(true);
-                _this.pushWindow(window);
-            }
-        };
         workspace.desktops.forEach(this.addKwinDesktop);
-        workspace.stackingOrder.forEach(this.addKwinWindow);
+        workspace.stackingOrder.forEach(function (kwinWindow, index) {
+            return _this.addKwinWindow(kwinWindow, index === workspace.stackingOrder.length - 1);
+        });
         workspace.currentDesktopChanged.connect(this.tileWindows);
         workspace.windowAdded.connect(this.addKwinWindow);
         workspace.windowRemoved.connect(this.removeKwinWindow);
-        workspace.windowActivated.connect(this.tileWindows);
+        // workspace.windowActivated.connect(this.tileWindows);
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
-        registerUserActionsMenu(this.actionsMenu);
-        this.tiling = false;
-        this.tileWindows();
+        registerUserActionsMenu(this.kwinActionsMenuEntry);
     }
     return WM;
 }());

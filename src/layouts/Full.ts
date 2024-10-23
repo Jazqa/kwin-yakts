@@ -1,10 +1,9 @@
-import { overlapsWith, rectAdd, rectCombine, rectDivide, toX2, toY2 } from "../math";
+import { Rect } from "../rect";
+import { Layout } from "../types/layout";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
-import { Layout } from "../types/layout";
-import { Columns } from "./Columns";
-import { Rows } from "./Rows";
 import { BaseLayout } from "./BaseLayout";
+import { Columns } from "./Columns";
 
 export class Full extends BaseLayout {
   name: string = "Full";
@@ -19,18 +18,16 @@ export class Full extends BaseLayout {
     this.addLayout(layout);
   }
 
-  adjustRect = (newRect: QRect) => {};
-
   addLayout = (layout: Layout) => {
     this.layouts.push(layout);
     this.limit += layout.limit;
   };
 
   createLayout = (layoutA: Layout) => {
-    const rects = rectDivide(layoutA.rect, { width: 1, height: 0.5 });
+    const [rectA, rectB] = new Rect(layoutA.rect).divide({ x: 1, y: 0.5 });
 
-    layoutA.adjustRect(rects[0]);
-    const layoutB = new Columns(rects[1]);
+    layoutA.setRect(rectA);
+    const layoutB = new Columns(rectB);
 
     this.addLayout(layoutB);
   };
@@ -42,44 +39,46 @@ export class Full extends BaseLayout {
     const layoutB = this.layouts.splice(length - 1)[0];
 
     this.limit -= layoutB.limit;
-    layoutA.adjustRect(rectCombine(layoutA.rect, layoutB.rect));
+    layoutA.setRect(new Rect(layoutA.rect).combine(layoutB.rect));
   };
 
   // @param layoutA - The layout in which a window triggered the resize event
   // @param rect    - "Raw" resize rect from the resize event (even if it goes way over bounds)
   resizeLayout = (layoutA: Layout, rect: QRect) => {
     // Actual resize rect used to resize layoutA (has values only on overlap)
-    const rectA = { x: 0, y: 0, width: 0, height: 0 };
+    const rectA = new Rect(layoutA.rect);
+    const overlapA = new Rect();
 
     this.layouts.forEach((layoutB) => {
       if (layoutB.id === layoutA.id) return;
       // Overlap rect between layoutB and layoutA
-      const rectB = { x: 0, y: 0, width: 0, height: 0 };
+      const rectB = new Rect(layoutB.rect);
+      const overlapB = new Rect();
 
-      if (layoutA.rect.y === toY2(layoutB.rect)) {
-        rectA.y = rect.y;
-        rectB.height = -rect.y;
+      if (rectA.y === rectB.y2) {
+        overlapA.y = rect.y;
+        overlapB.height = -rect.y;
       }
 
-      if (layoutB.rect.y === toY2(layoutA.rect)) {
-        rectB.y = rect.height;
-        rectA.height = -rect.height;
+      if (rectB.y === rectA.y2) {
+        overlapB.y = rect.height;
+        overlapA.height = -rect.height;
       }
 
-      if (layoutA.rect.x === toX2(layoutB.rect)) {
-        rectA.x = rect.x;
-        rectB.width = -rect.x;
+      if (rectA.x === rectB.x2) {
+        overlapA.x = rect.x;
+        overlapB.width = -rect.x;
       }
 
-      if (layoutB.rect.x === toX2(layoutA.rect)) {
-        rectB.x = rect.width;
-        rectA.width = -rect.width;
+      if (rectB.x === rectA.x2) {
+        overlapB.x = rect.width;
+        overlapA.width = -rect.width;
       }
 
-      layoutB.adjustRect(rectAdd(layoutB.rect, rectB));
+      layoutB.setRect(new Rect(rectB).add(overlapB));
     });
 
-    layoutA.adjustRect(rectAdd(layoutA.rect, rectA));
+    layoutA.setRect(new Rect(rectA).add(overlapA));
   };
 
   tileWindows = (windows: Array<Window>) => {
@@ -103,11 +102,11 @@ export class Full extends BaseLayout {
 
   resizeWindow = (window: Window, oldRect: QRect) => {
     this.layouts.some((layout) => {
-      if (overlapsWith(layout.rect, oldRect)) {
-        const edge = layout.resizeWindow(window, oldRect);
+      if (new Rect(oldRect).intersects(layout.rect)) {
+        const rect = layout.resizeWindow(window, oldRect);
 
-        if (edge) {
-          this.resizeLayout(layout, edge);
+        if (rect) {
+          this.resizeLayout(layout, rect);
         }
 
         return true;

@@ -1,11 +1,10 @@
 import config, { Margin } from "./config";
-import { Layout } from "./types/layout";
 import { Layouts } from "./layouts";
-import { rectMargin } from "./math";
+import { Rect } from "./rect";
 import { KWinOutput } from "./types/kwin";
+import { Layout } from "./types/layout";
 import { QRect } from "./types/qt";
 import { Window } from "./window";
-import { WM } from "./wm";
 
 // 2ed6
 // Used to fetch configuration values for individual outputs (configuration value format: kcfg_<key>_<index>)
@@ -22,7 +21,6 @@ export const outputIndex = (kwinOutput: KWinOutput) => {
 };
 
 export class Output {
-  wm: WM;
   kwin: KWinOutput;
 
   index: number;
@@ -30,14 +28,13 @@ export class Output {
   margin: Margin;
   layout: Layout;
 
-  constructor(wm: WM, kwin: KWinOutput, rect: QRect) {
-    this.wm = wm;
+  constructor(kwin: KWinOutput, rect: QRect) {
     this.kwin = kwin;
 
     this.index = outputIndex(kwin);
 
     this.margin = config.margin[this.index];
-    this.layout = new Layouts[config.layout[this.index]](rectMargin(rect, this.margin));
+    this.layout = new Layouts[config.layout[this.index]](new Rect(rect).margin(this.margin));
 
     const limit = config.limit[this.index];
     if (limit > -1) {
@@ -46,11 +43,7 @@ export class Output {
   }
 
   filterWindows = (windows: Array<Window>) => {
-    return windows.filter((window) => {
-      // Window is not on this output
-      if (window.kwin.output.serialNumber !== this.kwin.serialNumber) return false;
-      return true;
-    });
+    return windows.filter((window) => window.kwin.output.serialNumber === this.kwin.serialNumber);
   };
 
   tileWindows = (windows: Array<Window>) => {

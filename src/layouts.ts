@@ -1,6 +1,4 @@
-import { Columns } from "./layouts/Columns";
 import { Full } from "./layouts/Full";
-import { Rows } from "./layouts/Rows";
 
 /*
  * Adding a new layout to the script:

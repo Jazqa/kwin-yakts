@@ -1,5 +1,4 @@
-import { rectClone, toX2, toY2 } from "../math";
-import { Layout } from "../types/layout";
+import { Rect } from "../rect";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
 import { BaseLayout } from "./BaseLayout";
@@ -16,11 +15,6 @@ export class Columns extends BaseLayout {
     super(rect);
     this.limit = 4;
   }
-
-  adjustRect = (newRect: QRect) => {
-    this.rect = newRect;
-    this.reset();
-  };
 
   resetSeparators = (windows: Array<Window>) => {
     if (windows.length > this.separators.length) {
@@ -68,7 +62,7 @@ export class Columns extends BaseLayout {
   };
 
   resizeWindow = (window: Window, oldRect: QRect): QRect => {
-    const newRect = rectClone(window.kwin.frameGeometry);
+    const newRect = new Rect(window.kwin.frameGeometry);
 
     let x = oldRect.x;
 
@@ -124,17 +118,12 @@ export class Columns extends BaseLayout {
 
   // Calculates how much resizeWindow is trying to resize over this layout's rect (used to resize layouts in layouts that combine layouts)
   resizeLayout = (index: number, newRect: QRect, oldRect: QRect): QRect => {
-    const rect: QRect = { x: 0, y: 0, width: 0, height: 0 };
-
-    const newRectY2 = toY2(newRect);
-    const oldRectY2 = toY2(oldRect);
+    const rect: QRect = new Rect();
 
     if (newRect.y !== oldRect.y) {
       rect.y = oldRect.y - newRect.y;
-    }
-
-    if (newRectY2 !== oldRectY2) {
-      rect.height = oldRectY2 - newRectY2;
+    } else if (newRect.height !== oldRect.height) {
+      rect.height = oldRect.height - newRect.height;
     }
 
     if (index < 0 && newRect.width !== oldRect.width) {

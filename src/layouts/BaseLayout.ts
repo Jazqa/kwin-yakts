@@ -17,7 +17,9 @@ export class BaseLayout implements Layout {
     this.rect = rect;
   }
 
-  adjustRect = (newRect: QRect) => {};
+  setRect = (newRect: QRect) => {
+    this.rect = newRect;
+  };
 
   tileWindows = (windows: Array<Window>) => {};
 
