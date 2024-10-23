@@ -12,7 +12,7 @@ var WM = /** @class */ (function () {
         this.windowAdded = function (window) {
             if (_this.windowAllowed(window)) {
                 _this.windows.push(window);
-                _this.tileWindows();
+                _this.tileWindows(window);
             }
         };
         this.windowRemoved = function (window) {
@@ -22,28 +22,28 @@ var WM = /** @class */ (function () {
             });
             if (index > -1) {
                 _this.windows.splice(index, 1);
-                _this.tileWindows();
             }
         };
-        this.tileWindows = function () {
-            workspace.screens.forEach(function (output, index) {
-                // Filter windows by output
-                var windows = _this.windows.filter(function (window) { return window.output.serialNumber === output.serialNumber; });
-                var tiles = [];
-                var cb = function (tile) {
-                    if (tile.tiles.length === 0) {
-                        tiles.push(tile);
-                    }
-                };
-                var rootTile = workspace.tilingForScreen(output).rootTile;
-                // Traverse through the tree
-                _this.traverse(rootTile, cb);
-                windows.splice(tiles.length);
-                tiles.reverse();
-                windows.reverse();
-                windows.forEach(function (window, index) {
-                    window.tile = rootTile;
-                });
+        this.tileWindows = function (window) {
+            var tiles = [];
+            _this.traverse(workspace.tilingForScreen(window.output).rootTile, function (tile) {
+                if (tile.tiles.length === 0) {
+                    tiles.push(tile);
+                }
+            });
+            var windows = _this.windows
+                .filter(function (_a) {
+                var output = _a.output;
+                return output.serialNumber === window.output.serialNumber;
+            })
+                .filter(function (_a) {
+                var desktops = _a.desktops;
+                return desktops[0].id === workspace.currentDesktop.id;
+            })
+                .slice(0, tiles.length);
+            windows.forEach(function (window, index) {
+                var tile = tiles[index];
+                window.tile = tile;
             });
         };
         this.traverse = function (tile, cb) {

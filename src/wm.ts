@@ -18,7 +18,7 @@ export class WM {
   windowAdded = (window: KWinWindow) => {
     if (this.windowAllowed(window)) {
       this.windows.push(window);
-      this.tileWindows();
+      this.tileWindows(window);
     }
   };
 
@@ -26,37 +26,25 @@ export class WM {
     const index = this.windows.findIndex(({ internalId }) => internalId === window.internalId);
     if (index > -1) {
       this.windows.splice(index, 1);
-      this.tileWindows();
     }
   };
 
-  tileWindows = () => {
-    workspace.screens.forEach((output, index) => {
-      // Filter windows by output
-      const windows = this.windows.filter((window) => window.output.serialNumber === output.serialNumber);
+  tileWindows = (window: KWinWindow) => {
+    const tiles = [];
+    this.traverse(workspace.tilingForScreen(window.output).rootTile, (tile: KWinTile) => {
+      if (tile.tiles.length === 0) {
+        tiles.push(tile);
+      }
+    });
 
-      const tiles = [];
+    const windows = this.windows
+      .filter(({ output }) => output.serialNumber === window.output.serialNumber)
+      .filter(({ desktops }) => desktops[0].id === workspace.currentDesktop.id)
+      .slice(0, tiles.length);
 
-      const cb = (tile: KWinTile) => {
-        if (tile.tiles.length === 0) {
-          tiles.push(tile);
-        }
-      };
-
-      const rootTile = workspace.tilingForScreen(output).rootTile;
-
-      // Traverse through the tree
-      this.traverse(rootTile, cb);
-
-      windows.splice(tiles.length);
-
-      tiles.reverse();
-      windows.reverse();
-
-      windows.forEach((window, index) => {
-        let tile = tiles[index];
-        window.tile = rootTile;
-      });
+    windows.forEach((window, index) => {
+      let tile = tiles[index];
+      window.tile = tile;
     });
   };
 
