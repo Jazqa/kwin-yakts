@@ -9,6 +9,8 @@ export interface KWinWorkspaceWrapper {
 
   currentDesktop: KWinVirtualDesktop;
 
+  tilingForScreen: (output: KWinOutput) => KWinTilingManager;
+
   clientArea: (option: 2, output: KWinOutput, desktop: KWinVirtualDesktop) => QRect;
 
   currentDesktopChanged: {
@@ -74,6 +76,8 @@ export interface KWinWindow {
   onAllDesktops: boolean;
   minimized: boolean;
 
+  tile: KWinTile;
+
   frameGeometry: QRect;
 
   frameGeometryAboutToChange: {
@@ -108,4 +112,16 @@ export interface KWinWindow {
     connect: (cb: () => void) => void;
     disconnect: (cb: () => void) => void;
   };
+}
+
+export interface KWinTilingManager {
+  rootTile: KWinTile;
+  bestTileForPosition: (x: number, y: number) => KWinTile;
+}
+
+export interface KWinTile {
+  parent: KWinTile;
+  tiles: Array<KWinTile>;
+  windows: Array<KWinWindow>;
+  absoluteGeometry: QRect;
 }
