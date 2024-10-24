@@ -112,7 +112,7 @@ var config = {
     desktops: desktops,
 };
 
-var BSPLayout = /** @class */ (function () {
+var BSPLayout = (function () {
     function BSPLayout(rect) {
         var _this = this;
         this.leaves = [];
@@ -125,15 +125,12 @@ var BSPLayout = /** @class */ (function () {
             }
         };
         this.tileWindows = function (windows) {
-            // Adds missing leaves
             for (var i = 0; i < windows.length - _this.leaves.length; i++) {
-                // TODO: LAST WITH LOWEST DEPTH
                 var node = _this.leaves[_this.leaves.length - 1];
                 _this.leaves.splice(-1, 1);
                 node.addChild();
                 _this.leaves.push(node.children[0], node.children[1]);
             }
-            // Removes excess leaves
             if (_this.leaves.length > 1) {
                 for (var i = 0; i < _this.leaves.length - windows.length; i++) {
                     var node = _this.leaves[_this.leaves.length - 1];
@@ -151,7 +148,7 @@ var BSPLayout = /** @class */ (function () {
     }
     return BSPLayout;
 }());
-var Node = /** @class */ (function () {
+var Node = (function () {
     function Node(rect, parent) {
         var _this = this;
         this.addChild = function () {
@@ -165,31 +162,8 @@ var Node = /** @class */ (function () {
     return Node;
 }());
 
-/**
- *
- * Adding a new layout to the script:
- *
- *  - 1. Create a "src/layouts/LayoutName.ts" file
- *
- *  - 2. Write a Layout that implements Layout from "/src/types/layout.d.ts"
- *
- *  - 3. Import the new Layout and add it to the Layouts-array below
- *
- *  - 4. Add the following entry to each "kcfg_layout" element in "contents/code/config.ui"
- *
- *           <item>
- *             <property name="text">
- *               <string>NewLayout</string>
- *             </property>
- *           </item>
- *
- */
 var Layouts = [BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout];
 
-/**
- * Enum for direction in two-dimensional space.
- * @enum
- */
 var Dir;
 (function (Dir) {
     Dir[Dir["Up"] = 1] = "Up";
@@ -197,69 +171,28 @@ var Dir;
     Dir[Dir["Left"] = 3] = "Left";
     Dir[Dir["Right"] = 4] = "Right";
 })(Dir || (Dir = {}));
-/**
- * Checks if `value` is between `min` and `max`.
- * @param value Value to check
- * @param min Minimum acceptable value
- * @param max Maximum acceptable value
- * @returns Whether the `value` is between `min` and `max`
- */
 var between = function (value, min, max) {
     return value >= min && value <= max;
 };
-/**
- * Represents a rectangle in two-dimensional space.
- * @extends QRect Adds additional helpers for easy two-dimensional math
- */
-var Rect = /** @class */ (function () {
-    /**
-     *
-     * @param rect {@link QRect} to base `this` on
-     */
+var Rect = (function () {
     function Rect(rect) {
         var _this = this;
-        /**
-         * Clones `this`.
-         * @returns New instance of `this`
-         */
         this.clone = function () {
             return new Rect(_this);
         };
-        /**
-         * Checks if `this` intersects with `rect`.
-         * @param rect {@link QRect} to check
-         * @returns Whether there is an intersection between `this` and `rect`
-         */
         this.intersects = function (rect) {
             var x = between(_this.x, rect.x, rect.x + rect.width) || between(rect.x, _this.x, _this.x + _this.width);
             var y = between(_this.y, rect.y, rect.y + rect.height) || between(rect.y, _this.y, _this.y + _this.height);
             return x && y;
         };
-        /**
-         * Calculates the distance between `this` and `rect`.
-         * @param rect {@link QRect} to calculate distance to
-         * @returns Distance between `this` and `rect`
-         */
         this.distance = function (rect) {
             return Math.abs(_this.x - rect.x) + Math.abs(_this.y - rect.y);
         };
-        /**
-         * Positions `this` in the center of `rect`.
-         * @param rect {@link QRect} to center in
-         * @mutates `this`
-         * @returns {this} `this`
-         */
         this.center = function (rect) {
             _this.x = (rect.x + rect.width) * 0.5 - _this.width * 0.5;
             _this.y = (rect.y + rect.height) * 0.5 - _this.height * 0.5;
             return _this;
         };
-        /**
-         * Adjusts `this` by `rect`.
-         * @param rect {@link QRect} to adjust by
-         * @mutates `this`
-         * @returns `this`
-         */
         this.add = function (rect) {
             _this.x += rect.x;
             _this.y += rect.y;
@@ -267,12 +200,6 @@ var Rect = /** @class */ (function () {
             _this.height -= rect.height + rect.y;
             return _this;
         };
-        /**
-         * Combines `this` with `rect`.
-         * @param rect {@link QRect} to combine with
-         * @mutates `this`
-         * @returns `this`
-         */
         this.combine = function (rect) {
             var x2 = Math.max(_this.x2, rect.x + rect.width);
             var y2 = Math.max(_this.y2, rect.y + rect.height);
@@ -282,11 +209,6 @@ var Rect = /** @class */ (function () {
             _this.height = y2 - _this.y;
             return _this;
         };
-        /**
-         * Creates two halves of `this`.
-         * @param v Creates vertical halves instead of horizontal ones
-         * @returns Two halves of `this`
-         */
         this.split = function (v) {
             var rectA = _this.clone();
             var rectB = rectA.clone();
@@ -302,12 +224,6 @@ var Rect = /** @class */ (function () {
             }
             return [rectA, rectB];
         };
-        /**
-         * Adds space around `this`.
-         * @param size Amount of space to add
-         * @mutates `this`
-         * @returns `this`
-         */
         this.gap = function (size) {
             _this.x += size;
             _this.y += size;
@@ -315,12 +231,6 @@ var Rect = /** @class */ (function () {
             _this.height -= size * 2;
             return _this;
         };
-        /**
-         * Adds space around `this`.
-         * @param margin {@link Margin} to add
-         * @mutates `this`
-         * @returns `this`
-         */
         this.margin = function (margin) {
             _this.x += margin.left;
             _this.y += margin.top;
@@ -364,50 +274,25 @@ var Rect = /** @class */ (function () {
     return Rect;
 }());
 
-/**
- * @todo 2ed6
- *
- * Unlike proper `.qml` interface, the `.ui` interface required by KWin doesn't support detecting outputs.
- * As a result, the configuration interface is hard-coded for up to 4 outputs
- * @param kwinOutput {@link KWinOutput} for which to find the index
- * @returns Index of the output in {@link Workspace.screens}, which can be used to fetch configuration values that use the format:
- * `kcfg_<key>_<output_index>`
- */
 var outputIndex = function (kwinOutput) {
     var index = workspace.screens.findIndex(function (_a) {
         var serialNumber = _a.serialNumber;
         return serialNumber === kwinOutput.serialNumber;
     });
-    // Supports more than 4 outputs by defaulting to 1st's configuration
     if (index === -1) {
         index = 0;
     }
     return index;
 };
-/**
- * Represents a screen managed by the script (KWin *mostly* uses the term output)
- * @augments KWinOutput Adds additional helpers, temporary variables and signal callbacks necessary for window management.
- */
-var Output = /** @class */ (function () {
+var Output = (function () {
     function Output(kwin, rect) {
         var _this = this;
-        /**
-         * Filters `windows` to exclude {@link Window|Windows} that are not on `this.kwin`.
-         * @param windows {@link Window|Windows} to be filtered
-         * @returns Filtered copy of `windows`
-         */
         this.filterWindows = function (windows) {
             return windows.filter(function (window) { return window.kwin.output.serialNumber === _this.kwin.serialNumber; });
         };
-        /**
-         * Calls `this.layout`'s {@link Layout.tileWindows|tileWindows}.
-         */
         this.tileWindows = function (windows) {
             _this.layout.tileWindows(_this.filterWindows(windows));
         };
-        /**
-         * Calls `this.layout`'s {@link Layout.resizeWindow|resizeWindow}.
-         */
         this.resizeWindow = function (window, oldRect) {
             _this.layout.resizeWindow(window, oldRect);
         };
@@ -415,7 +300,6 @@ var Output = /** @class */ (function () {
         this.index = outputIndex(kwin);
         this.margin = config.margin[this.index];
         this.layout = new Layouts[config.layout[this.index]](new Rect(rect).margin(this.margin));
-        /** Uses the lower value between `this.layout.limit` and {@link config.limit} */
         var limit = config.limit[this.index];
         if (limit > -1) {
             this.layout.limit = Math.min(this.layout.limit, limit);
@@ -424,56 +308,28 @@ var Output = /** @class */ (function () {
     return Output;
 }());
 
-/**
- * @param kwinVirtualDesktop {@link KWinVirtualDesktop} for which to find the index
- * @returns Index of the output in {@link Workspace.screens}
- */
 var kwinDesktopIndex = function (kwinVirtualDesktop) {
     return workspace.desktops.findIndex(function (_a) {
         var id = _a.id;
         return id === kwinVirtualDesktop.id;
     });
 };
-/**
- * Represents a virtual desktop managed by the script
- * @augments KWinVirtualDesktop Adds additional helpers, temporary variables and signal callbacks necessary for window management.
- */
-var Desktop = /** @class */ (function () {
+var Desktop = (function () {
     function Desktop(kwin) {
         var _this = this;
         this.outputs = [];
-        /**
-         * @todo
-         * 04c1
-         *
-         * Creates a new {@link Output} based on `kwinOutput` and adds it to `this.outputs`.
-         * @param kwinOutput {@link KWinOutput} to add
-         * @mutates `this.outputs`
-         */
         this.addKwinOutput = function (kwinOutput) {
-            // KWinOutput is already added
             if (_this.outputs.some(function (output) { return output.kwin.serialNumber === kwinOutput.serialNumber; }))
                 return;
             var output = new Output(kwinOutput, maximizeArea(kwinOutput, _this.kwin));
             _this.outputs.push(output);
         };
-        /**
-         * Filters `windows` to exclude {@link Window|Windows} that are not on `this.kwin`.
-         * @param windows {@link Window|Windows} to be filtered
-         * @returns Filtered copy of `windows`
-         */
         this.filterWindows = function (windows) {
             return windows.filter(function (window) { return window.kwin.desktops.length === 1 && window.kwin.desktops[0].id === _this.kwin.id; });
         };
-        /**
-         * Calls {@link Output.tileWindows|tileWindows} of each {@link Output} in `this.outputs`.
-         */
         this.tileWindows = function (windows) {
             _this.outputs.forEach(function (output) { return output.tileWindows(_this.filterWindows(windows)); });
         };
-        /**
-         * Finds the {@link Output} `window` is on and calls its {@link Output.resizeWindow|resizeWindow}.
-         */
         this.resizeWindow = function (window, oldRect) {
             var output = _this.outputs.find(function (output) { return output.kwin.serialNumber === window.kwin.output.serialNumber; });
             output.resizeWindow(window, oldRect);
@@ -484,11 +340,7 @@ var Desktop = /** @class */ (function () {
     return Desktop;
 }());
 
-/**
- * Represents a window managed by the script.
- * @augments KWinWindow Adds additional helpers, temporary variables and signal callbacks necessary for window management.
- */
-var Window = /** @class */ (function () {
+var Window = (function () {
     function Window(kwin) {
         var _this = this;
         this.remove = function () {
@@ -499,12 +351,6 @@ var Window = /** @class */ (function () {
             _this.kwin.fullScreenChanged.disconnect(_this.fullScreenChanged);
             _this.affectedOthers(_this);
         };
-        /**
-         *
-         * @param manual Action was performed **manually by the user** instead of *automatically by the script*
-         * @param push Moves `this` to the bottom of {@link YAKTS.windows}
-         * @mutates `this.enabled`, `this.disabled`
-         */
         this.enable = function (manual, push) {
             if (manual || (_this.disabled && !_this.enabledByDefault)) {
                 _this.disabled = false;
@@ -514,11 +360,6 @@ var Window = /** @class */ (function () {
                 }
             }
         };
-        /**
-         *
-         * @param manual Action was performed **manually by the user** instead of *automatically by the script*
-         * @mutates `this.enabled`, `this.disabled`
-         */
         this.disable = function (manual) {
             if (!manual)
                 _this.disabled = true;
@@ -527,13 +368,6 @@ var Window = /** @class */ (function () {
             if (manual)
                 workspace.activeWindow = _this.kwin;
         };
-        /**
-         * @todo b43a
-         *
-         * Sets `this.kwin.frameGeometry` to `rect` but caps its `width` and `height` to `this.kwin.minSize`.
-         * @param rect Target {@link QRect}
-         * @mutates `this.kwin.frameGeometry`
-         */
         this.setFrameGeometry = function (rect) {
             var frameGeometry = new Rect(rect).gap(config.gap[outputIndex(_this.kwin.output)]);
             if (rect.width < _this.kwin.minSize.width) {
@@ -544,21 +378,10 @@ var Window = /** @class */ (function () {
             }
             _this.kwin.frameGeometry = frameGeometry.kwin;
         };
-        /**
-         * Callback triggered when `kwin` starts moving.
-         * @param oldRect {@link QRect} before `kwin` moved
-         * @mutates `this.move`
-         * @mutates `this.oldRect`
-         */
         this.startMove = function (oldRect) {
             _this.move = true;
             _this.oldRect = new Rect(oldRect).kwin;
         };
-        /**
-         * Callback triggered when `kwin` stops moving.
-         * Calls {@link outputChanged} if output before moving (`this.kwinOutput`) doesn't match output after moving (`this.kwin.output`).
-         * @mutates `this.move`
-         */
         this.stopMove = function () {
             if (_this.kwinOutput !== _this.kwin.output) {
                 _this.outputChanged(true);
@@ -568,29 +391,14 @@ var Window = /** @class */ (function () {
             }
             _this.move = false;
         };
-        /**
-         * Callback triggered when `kwin` starts being resized.
-         * @param oldRect {@link QRect} before `kwin` was resized
-         * @mutates `this.resize`
-         * @mutates `this.oldRect`
-         */
         this.startResize = function (oldRect) {
             _this.resize = true;
             _this.oldRect = new Rect(oldRect).kwin;
         };
-        /**
-         * Callback triggered when `kwin` stops being resized.
-         * Calls {@link sizeChanged}.
-         * @mutates `this.resize`
-         */
         this.stopResize = function () {
             _this.sizeChanged(_this, _this.oldRect);
             _this.resize = false;
         };
-        /**
-         * Callback triggered when `kwin` starts and stops being moved and resized.
-         * Identifies the event and calls {@link startMove}, {@link stopMove}, {@link startResize} or {@link stopResize} accordingly.
-         */
         this.moveResizedChanged = function () {
             if (_this.kwin.move && !_this.move) {
                 _this.startMove(_this.kwin.frameGeometry);
@@ -608,11 +416,6 @@ var Window = /** @class */ (function () {
                 _this.stopResize();
             }
         };
-        /**
-         * Callback triggered when `kwin.fullScreen` changes.
-         * Toggles `this.enabled` accordingly.
-         * @mutates `this.enabled`, `this.disabled`
-         */
         this.fullScreenChanged = function () {
             if (_this.kwin.fullScreen) {
                 _this.disable();
@@ -621,11 +424,6 @@ var Window = /** @class */ (function () {
                 _this.enable(false, false);
             }
         };
-        /**
-         * Callback triggered when `kwin` is maximized.
-         * Toggles `this.enabled` accordingly.
-         * @mutates `this.enabled`, `this.disabled`
-         */
         this.maximizedChanged = function () {
             if (_this.kwin.fullScreen)
                 return;
@@ -636,11 +434,6 @@ var Window = /** @class */ (function () {
                 _this.enable(false, false);
             }
         };
-        /**
-         * Callback triggered when `kwin.minimized` changes.
-         * Toggles `this.enabled` accordingly.
-         * @mutates `this.enabled`, `this.disabled`
-         */
         this.minimizedChanged = function () {
             if (_this.kwin.minimized) {
                 _this.disable();
@@ -649,10 +442,6 @@ var Window = /** @class */ (function () {
                 _this.enable(false, true);
             }
         };
-        /**
-         * {@link KWinWindow} has no property for maximized, so its size has to be compared to {@link maximizeArea}.
-         * @returns Whether `this.kwin` is maximized or not
-         */
         this.isMaximized = function () {
             var desktop = _this.kwin.desktops[0] || workspace.desktops[0];
             var area = maximizeArea(_this.kwin.output, desktop);
@@ -662,13 +451,6 @@ var Window = /** @class */ (function () {
                 return true;
             }
         };
-        /**
-         * Callback triggered when `kwin`'s output changes.
-         * Identifies whether the output was changed by manually moving the window or via shortcuts.
-         * Toggles `this.enabled` accordingly.
-         * @param force Ignore the `this.move`-check, so outputChanged signal isn't triggered if moveResizedChanged might trigger it later
-         * @mutates `this.kwinOutput`, `this.enabled`, `this.disabled`
-         */
         this.outputChanged = function (force) {
             if (force || !_this.move) {
                 _this.kwinOutput = _this.kwin.output;
@@ -680,13 +462,6 @@ var Window = /** @class */ (function () {
                 }
             }
         };
-        /**
-         * @todo cf3f
-         *
-         * Callback triggered when `kwin`'s desktops change.
-         * Toggles `this.enabled` accordingly.
-         * @mutates `this.kwinDesktops`, `this.enabled`, `this.disabled`
-         */
         this.desktopsChanged = function () {
             if (_this.kwin.desktops.length > 1) {
                 _this.disable();
@@ -711,9 +486,6 @@ var Window = /** @class */ (function () {
         this.kwin.fullScreenChanged.connect(this.fullScreenChanged);
     }
     Object.defineProperty(Window.prototype, "enabledByDefault", {
-        /**
-         * @getter Much like {@link YAKTS.isKwinWindowAllowed}, checks if `this.enabled` should be `true` by default
-         */
         get: function () {
             var _this = this;
             return (!this.kwin.minimized &&
@@ -732,20 +504,11 @@ var Window = /** @class */ (function () {
     return Window;
 }());
 
-/**
- * Entry point of the script.
- */
-var YAKTS = /** @class */ (function () {
+var YAKTS = (function () {
     function YAKTS() {
         var _this = this;
         this.desktops = [];
         this.windows = [];
-        // KWin ActionsMenu
-        /**
-         * Creates a new {@link KWinActionsMenuEntry}.
-         * @param kwinWindow {@link KWinWindow} to create an entry for
-         * @returns Entry to show in `kwinWindow`'s right-click menu
-         */
         this.createMenuEntry = function (kwinWindow) {
             var window = _this.windows.find(function (window) { return window.kwin.internalId === kwinWindow.internalId; });
             if (window) {
@@ -759,30 +522,14 @@ var YAKTS = /** @class */ (function () {
                 };
             }
         };
-        // KWin Desktops
-        /**
-         * Creates a new {@link Desktop} based on `kwinVirtualDesktop` and adds it to `this.desktops`.
-         * @param kwinVirtualDesktop {@link KWinVirtualDesktop} to add
-         * @mutates `this.desktops`
-         * @returns
-         */
         this.addKwinDesktop = function (kwinVirtualDesktop) {
-            // KWinVirtualDesktop is exluded
             if (config.desktops.indexOf(kwinDesktopIndex(kwinVirtualDesktop)))
                 return;
-            // KWinVirtualDesktop is already added
             if (_this.desktops.some(function (desktop) { return desktop.kwin.id === kwinVirtualDesktop.id; }))
                 return;
             var desktop = new Desktop(kwinVirtualDesktop);
             _this.desktops.push(desktop);
         };
-        // KWin Windows
-        /**
-         * Creates a new {@link Window} based on `kwinWindow` and adds it to `this.windows`.
-         * @param kwinWindow {@link KWinWindow} to add
-         * @param loop Skips {@link YAKTS.windowAffectedOthers} call
-         * @mutates `this.windows`
-         */
         this.addKwinWindow = function (kwinWindow, loop) {
             if (_this.isKwinWindowAllowed(kwinWindow)) {
                 var window_1 = new Window(kwinWindow);
@@ -796,11 +543,6 @@ var YAKTS = /** @class */ (function () {
                 }
             }
         };
-        /**
-         * Finds {@link Window} from `this.windows` by `kwinWindow.internalId` and removes it.
-         * @param kwinWindow {@link KWinWindow} to remove
-         * @mutates `this.windows`
-         */
         this.removeKwinWindow = function (kwinWindow) {
             var index = _this.windows.findIndex(function (window) { return window.kwin.internalId === kwinWindow.internalId; });
             var window = _this.windows[index];
@@ -809,44 +551,22 @@ var YAKTS = /** @class */ (function () {
                 window.remove();
             }
         };
-        /**
-         * Checks if `kwinWindow` is compatible with the script.
-         * @param kwinWindow {@link KWinWindow} to check
-         * @returns Whether `kwinWindow` is compatible or not
-         */
         this.isKwinWindowAllowed = function (kwinWindow) {
             return kwinWindow.managed && kwinWindow.normalWindow && kwinWindow.moveable && kwinWindow.resizeable;
         };
-        // Windows
-        /**
-         * Filters `this.windows` to exclude {@link Window|Windows} that are not {@link Window.enabled|enabled}.
-         * @returns Filtered copy of `this.windows`
-         */
         this.filterWindows = function () {
             return _this.windows.filter(function (window) {
                 return window.enabled;
             });
         };
-        /**
-         * Finds the current {@link Desktop} from `this.desktops` and calls its {@link Desktop.tileWindows|tileWindows}.
-         */
         this.tileWindows = function () {
             _this.desktops.find(function (desktop) { return desktop.kwin.id === workspace.currentDesktop.id; }).tileWindows(_this.filterWindows());
         };
-        /**
-         * Swaps the positions of `this.windows[i]` and `this.windows[j]` in `this.windows`.
-         * @param i First index to swap
-         * @param j Second index to swap
-         * @mutates `this.windows`
-         */
         this.swapWindows = function (i, j) {
             var window = _this.windows[i];
             _this.windows[i] = _this.windows[j];
             _this.windows[j] = window;
         };
-        /**
-         * Finds `workspace.activeWindow` in `this.windows` and calls {@link toggleWindow} with it.
-         */
         this.toggleActiveWindow = function () {
             var window = _this.windows.find(function (_a) {
                 var kwin = _a.kwin;
@@ -854,10 +574,6 @@ var YAKTS = /** @class */ (function () {
             });
             _this.toggleWindow(window);
         };
-        /**
-         * Toggles {@link Window.enabled} property of `window`.
-         * @param window {@link Window} for which to toggle the property
-         */
         this.toggleWindow = function (window) {
             if (window.enabled) {
                 window.disable(true);
@@ -866,21 +582,9 @@ var YAKTS = /** @class */ (function () {
                 window.enable(true, true);
             }
         };
-        // Window signals
-        /**
-         * Callback triggered whenever `window` affects other windows.
-         * Calls {@link tileWindows}.
-         * @param window {@link Window} window that triggered the callback
-         */
         this.windowAffectedOthers = function (window) {
             _this.tileWindows();
         };
-        /**
-         * Callback triggered whenever `window` should be moved to the end of `this.windows`.
-         * Splices `window` from its current index and pushes it to the end of `this.windows`.
-         * @param window {@link Window} window that triggered the callback
-         * @mutates `this.windows`
-         */
         this.windowMovedToBottom = function (window) {
             var index = _this.windows.findIndex(function (_a) {
                 var kwin = _a.kwin;
@@ -891,12 +595,6 @@ var YAKTS = /** @class */ (function () {
             }
             _this.tileWindows();
         };
-        /**
-         * Callback triggered whenever `window`'s size changes.
-         * Finds the `window`'s current {@link Desktop} from `this.desktops` and calls its {@link Desktop.resizeWindow|resizeWindow}.
-         * @param window {@link Window} window that triggered the callback
-         * @param oldRect {@link QRect} before the size changed
-         */
         this.windowSizeChanged = function (window, oldRect) {
             if (window.kwin.desktops.length !== 1)
                 return;
@@ -906,14 +604,6 @@ var YAKTS = /** @class */ (function () {
             desktop.resizeWindow(window, oldRect);
             _this.tileWindows();
         };
-        /**
-         * Callback triggered whenever `window`'s position changes.
-         * Compares the `window`'s position to `oldRect` and `this.windows` entries with matching {@link KWinWindow.desktops|desktops}
-         * and "snaps" it to the closest one by returning it to `oldRect` or calling {@link swapWindows}.
-         * @param window {@link Window} window that triggered the callback
-         * @param oldRect {@link QRect} before the size changed
-         * @mutates `this.windows`
-         */
         this.windowPositionChanged = function (windowA, oldRect) {
             if (windowA.kwin.desktops.length !== 1)
                 return;
@@ -944,7 +634,6 @@ var YAKTS = /** @class */ (function () {
         workspace.currentDesktopChanged.connect(this.tileWindows);
         workspace.windowAdded.connect(this.addKwinWindow);
         workspace.windowRemoved.connect(this.removeKwinWindow);
-        // workspace.windowActivated.connect(this.tileWindows);
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);
         registerUserActionsMenu(this.createMenuEntry);
     }

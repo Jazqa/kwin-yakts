@@ -3,6 +3,7 @@
     "lib": ["es2016", "dom"],
     "target": "es5",
     "module": "es6",
-    "outDir": "bin"
+    "outDir": "bin",
+    "removeComments": true
   }
 }
