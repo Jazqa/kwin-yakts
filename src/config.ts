@@ -66,6 +66,7 @@ const minWidth: number = readConfig("minWidth", 256);
 const minHeight: number = readConfig("minHeight", 256);
 
 const processes: Array<string> = [
+  "xwaylandvideobridge",
   "albert",
   "kazam",
   "krunner",

@@ -24,7 +24,7 @@ export class Full extends BaseLayout {
   };
 
   createLayout = (layoutA: Layout) => {
-    const [rectA, rectB] = new Rect(layoutA.rect).divide({ x: 1, y: 0.5 });
+    const [rectA, rectB] = new Rect(layoutA.rect).split(true);
 
     layoutA.setRect(rectA);
     const layoutB = new Columns(rectB);

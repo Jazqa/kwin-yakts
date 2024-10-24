@@ -1,13 +1,16 @@
 import { QPoint, QRect, QSize } from "./qt";
 
 export interface KWinWorkspaceWrapper {
-  activities: Array<string>;
-  desktops: Array<KWinVirtualDesktop>;
-  screens: Array<KWinOutput>;
-  stackingOrder: Array<KWinWindow>;
-  activeWindow: KWinWindow;
+  readonly activities: Array<string>;
 
+  readonly desktops: Array<KWinVirtualDesktop>;
   currentDesktop: KWinVirtualDesktop;
+
+  readonly screens: Array<KWinOutput>;
+  readonly activeScreen: KWinOutput;
+
+  readonly stackingOrder: Array<KWinWindow>;
+  activeWindow: KWinWindow;
 
   clientArea: (option: 2, output: KWinOutput, desktop: KWinVirtualDesktop) => QRect;
 
@@ -15,6 +18,7 @@ export interface KWinWorkspaceWrapper {
     connect: (cb: (oldDesktop: KWinVirtualDesktop) => void) => void;
     disconnect: (cb: (oldDesktop: KWinVirtualDesktop) => void) => void;
   };
+
   windowAdded: {
     connect: (cb: (window: KWinWindow) => void) => void;
     disconnect: (cb: (window: KWinWindow) => void) => void;
@@ -39,55 +43,48 @@ export interface KWinVirtualDesktop {
 }
 
 export interface KWinWindow {
+  hidden: any;
+  readonly internalId: string;
+
   readonly pos: QPoint;
   readonly size: QSize;
   readonly rect: QRect;
 
   readonly output: KWinOutput;
+  desktops: Array<KWinVirtualDesktop>;
 
   readonly resourceName: string;
   readonly resourceClass: string;
-
-  readonly normalWindow: boolean;
-  readonly managed: boolean;
-
-  readonly stackingOrder: number;
-
-  readonly active: boolean;
-
   readonly caption: string;
-
-  readonly minSize: QSize;
-  readonly maxSize: QSize;
-
-  readonly internalId: string;
-
-  readonly maximizable: boolean;
-  readonly moveable: boolean;
-  readonly resizeable: boolean;
 
   readonly move: boolean;
   readonly resize: boolean;
 
+  readonly normalWindow: boolean;
+  readonly managed: boolean;
+  readonly active: boolean;
+  readonly maximizable: boolean;
+  readonly minimizable: boolean;
+  readonly moveable: boolean;
+  readonly resizeable: boolean;
+
+  readonly minSize: QSize;
+  readonly maxSize: QSize;
+
   fullScreen: boolean;
-  desktops: Array<KWinVirtualDesktop>;
-  onAllDesktops: boolean;
   minimized: boolean;
 
   frameGeometry: QRect;
 
-  frameGeometryAboutToChange: {
-    connect: (cb: (rect: QRect) => void) => void;
-    disconnect: (cb: (rect: QRect) => void) => void;
-  };
-  frameGeometryChanged: {
-    connect: (cb: (rect: QRect) => void) => void;
-    disconnect: (cb: (rect: QRect) => void) => void;
-  };
-  moveResizedChanged: {
+  desktopsChanged: {
     connect: (cb: () => void) => void;
     disconnect: (cb: () => void) => void;
   };
+  outputChanged: {
+    connect: (cb: () => void) => void;
+    disconnect: (cb: () => void) => void;
+  };
+
   fullScreenChanged: {
     connect: (cb: () => void) => void;
     disconnect: (cb: () => void) => void;
@@ -100,12 +97,24 @@ export interface KWinWindow {
     connect: (cb: () => void) => void;
     disconnect: (cb: () => void) => void;
   };
-  outputChanged: {
+
+  moveResizedChanged: {
     connect: (cb: () => void) => void;
     disconnect: (cb: () => void) => void;
   };
-  desktopsChanged: {
-    connect: (cb: () => void) => void;
-    disconnect: (cb: () => void) => void;
+  frameGeometryAboutToChange: {
+    connect: (cb: (rect: QRect) => void) => void;
+    disconnect: (cb: (rect: QRect) => void) => void;
   };
+  frameGeometryChanged: {
+    connect: (cb: (rect: QRect) => void) => void;
+    disconnect: (cb: (rect: QRect) => void) => void;
+  };
+}
+
+interface KWinActionsMenuEntry {
+  text: string;
+  checkable?: boolean;
+  checked?: boolean;
+  triggered: () => void;
 }

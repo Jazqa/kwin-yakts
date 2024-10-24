@@ -5,13 +5,31 @@ import { Rect } from "./rect";
 import { KWinOutput, KWinVirtualDesktop, KWinWindow } from "./types/kwin";
 import { QRect } from "./types/qt";
 
+/**
+ * Represents a window managed by the script.
+ * @augments KWinWindow Adds additional helpers, temporary variables and signal callbacks necessary for window management.
+ */
 export class Window {
+  /**
+   * @property Pointer to the {@link KWinWindow} `this` augments
+   */
   kwin: KWinWindow;
 
-  // Enabled  can      be changed manually by the user or automatically by the script
-  // Disabled can only be changed                         automatically by the script
-  // In practice, disabled = true tiles can be re-enabled automatically by the script, but disabled = false tiles can only be re-enabled manually by the user
+  /**
+   * @property Should `this` this be tiled by {@link YAKTS}.
+   *
+   *
+   * Can be toggled *automatically by the script* or **manually by the user**.
+   */
   enabled: boolean;
+
+  /**
+   * @property Was `this.enabled` changed to `false` *automatically* by the script or **manually** by the user.
+   *
+   * - True: `this` can be re-enabled *automatically by the script*.
+   *
+   * - False: `this` can only be re-enabled **manually by the user**.
+   */
   disabled: boolean;
 
   private kwinOutput: KWinOutput;
@@ -20,8 +38,14 @@ export class Window {
   private move: boolean;
   private resize: boolean;
 
+  /**
+   * @property Temporarily stores `this.kwin.frameGeometry` when moving or resizing starts
+   */
   private oldRect: QRect;
 
+  /**
+   * @getter Much like {@link YAKTS.isKwinWindowAllowed}, checks if `this.enabled` should be `true` by default
+   */
   get enabledByDefault() {
     return (
       !this.kwin.minimized &&
@@ -65,8 +89,12 @@ export class Window {
     this.affectedOthers(this);
   };
 
-  // @param manual  - Indicates whether the action was performed manually by the user or automatically by the script
-  // @param push    - Indicates whether the window should be moved to the bottom of the Window stack
+  /**
+   *
+   * @param manual Action was performed **manually by the user** instead of *automatically by the script*
+   * @param push Moves `this` to the bottom of {@link YAKTS.windows}
+   * @mutates `this.enabled`, `this.disabled`
+   */
   enable = (manual?: boolean, push?: boolean) => {
     if (manual || (this.disabled && !this.enabledByDefault)) {
       this.disabled = false;
@@ -77,14 +105,25 @@ export class Window {
     }
   };
 
-  // @param manual  - Indicates whether the action was performed manually by the user or automatically by the script
+  /**
+   *
+   * @param manual Action was performed **manually by the user** instead of *automatically by the script*
+   * @mutates `this.enabled`, `this.disabled`
+   */
   disable = (manual?: boolean) => {
     if (!manual) this.disabled = true;
     this.enabled = false;
     this.affectedOthers(this);
+    if (manual) workspace.activeWindow = this.kwin;
   };
 
-  // b43a
+  /**
+   * @todo b43a
+   *
+   * Sets `this.kwin.frameGeometry` to `rect` but caps its `width` and `height` to `this.kwin.minSize`.
+   * @param rect Target {@link QRect}
+   * @mutates `this.kwin.frameGeometry`
+   */
   setFrameGeometry = (rect: QRect) => {
     const frameGeometry = new Rect(rect).gap(config.gap[outputIndex(this.kwin.output)]);
 
@@ -99,11 +138,22 @@ export class Window {
     this.kwin.frameGeometry = frameGeometry.kwin;
   };
 
+  /**
+   * Callback triggered when `kwin` starts moving.
+   * @param oldRect {@link QRect} before `kwin` moved
+   * @mutates `this.move`
+   * @mutates `this.oldRect`
+   */
   startMove = (oldRect: QRect) => {
     this.move = true;
     this.oldRect = new Rect(oldRect).kwin;
   };
 
+  /**
+   * Callback triggered when `kwin` stops moving.
+   * Calls {@link outputChanged} if output before moving (`this.kwinOutput`) doesn't match output after moving (`this.kwin.output`).
+   * @mutates `this.move`
+   */
   stopMove = () => {
     if (this.kwinOutput !== this.kwin.output) {
       this.outputChanged(true);
@@ -114,16 +164,31 @@ export class Window {
     this.move = false;
   };
 
+  /**
+   * Callback triggered when `kwin` starts being resized.
+   * @param oldRect {@link QRect} before `kwin` was resized
+   * @mutates `this.resize`
+   * @mutates `this.oldRect`
+   */
   startResize = (oldRect: QRect) => {
     this.resize = true;
     this.oldRect = new Rect(oldRect).kwin;
   };
 
+  /**
+   * Callback triggered when `kwin` stops being resized.
+   * Calls {@link sizeChanged}.
+   * @mutates `this.resize`
+   */
   stopResize = () => {
     this.sizeChanged(this, this.oldRect);
     this.resize = false;
   };
 
+  /**
+   * Callback triggered when `kwin` starts and stops being moved and resized.
+   * Identifies the event and calls {@link startMove}, {@link stopMove}, {@link startResize} or {@link stopResize} accordingly.
+   */
   moveResizedChanged = () => {
     if (this.kwin.move && !this.move) {
       this.startMove(this.kwin.frameGeometry);
@@ -138,6 +203,11 @@ export class Window {
     }
   };
 
+  /**
+   * Callback triggered when `kwin.fullScreen` changes.
+   * Toggles `this.enabled` accordingly.
+   * @mutates `this.enabled`, `this.disabled`
+   */
   fullScreenChanged = () => {
     if (this.kwin.fullScreen) {
       this.disable();
@@ -146,6 +216,11 @@ export class Window {
     }
   };
 
+  /**
+   * Callback triggered when `kwin` is maximized.
+   * Toggles `this.enabled` accordingly.
+   * @mutates `this.enabled`, `this.disabled`
+   */
   maximizedChanged = () => {
     if (this.kwin.fullScreen) return;
 
@@ -156,6 +231,11 @@ export class Window {
     }
   };
 
+  /**
+   * Callback triggered when `kwin.minimized` changes.
+   * Toggles `this.enabled` accordingly.
+   * @mutates `this.enabled`, `this.disabled`
+   */
   minimizedChanged = () => {
     if (this.kwin.minimized) {
       this.disable();
@@ -164,6 +244,10 @@ export class Window {
     }
   };
 
+  /**
+   * {@link KWinWindow} has no property for maximized, so its size has to be compared to {@link maximizeArea}.
+   * @returns Whether `this.kwin` is maximized or not
+   */
   isMaximized = () => {
     const desktop = this.kwin.desktops[0] || workspace.desktops[0];
     const area = maximizeArea(this.kwin.output, desktop);
@@ -176,7 +260,13 @@ export class Window {
     }
   };
 
-  // @param force - Ignores the move check (used to ignore outputChanged signal if moveResizedChanged might do the same later)
+  /**
+   * Callback triggered when `kwin`'s output changes.
+   * Identifies whether the output was changed by manually moving the window or via shortcuts.
+   * Toggles `this.enabled` accordingly.
+   * @param force Ignore the `this.move`-check, so outputChanged signal isn't triggered if moveResizedChanged might trigger it later
+   * @mutates `this.kwinOutput`, `this.enabled`, `this.disabled`
+   */
   outputChanged = (force?: boolean) => {
     if (force || !this.move) {
       this.kwinOutput = this.kwin.output;
@@ -189,7 +279,13 @@ export class Window {
     }
   };
 
-  // cf3f
+  /**
+   * @todo cf3f
+   *
+   * Callback triggered when `kwin`'s desktops change.
+   * Toggles `this.enabled` accordingly.
+   * @mutates `this.kwinDesktops`, `this.enabled`, `this.disabled`
+   */
   desktopsChanged = () => {
     if (this.kwin.desktops.length > 1) {
       this.disable();
@@ -200,8 +296,12 @@ export class Window {
     this.kwinDesktops = this.kwin.desktops;
   };
 
-  // Callbacks from WM
-  affectedOthers: (window: Window) => void; // Only if the effect ISN'T communicated by one of the signals below
+  /**
+   * Callbacks for {@link YAKTS}
+   */
+
+  /** Triggered only if the effect **isn't** communicated by other signals (e.g. {@link movedToBottom}) */
+  affectedOthers: (window: Window) => void;
   movedToBottom: (window: Window) => void;
   positionChanged: (window: Window, oldRect: QRect) => void;
   sizeChanged: (window: Window, oldRect: QRect) => void;

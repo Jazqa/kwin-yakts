@@ -1,3 +1,3 @@
-import { WM } from "./wm";
+import { YAKTS } from "./yakts";
 
-new WM();
+new YAKTS();
