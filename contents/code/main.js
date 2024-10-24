@@ -227,35 +227,53 @@ var Rect = (function () {
     return Rect;
 }());
 
+var findWindowToSplit = function (windows) {
+    var firstMatch = false;
+    var i = -1;
+    workspace.stackingOrder
+        .slice()
+        .reverse()
+        .some(function (kwinWindow) {
+        var secondMatch = firstMatch;
+        var j = windows.findIndex(function (window) {
+            return window.kwin.internalId === kwinWindow.internalId;
+        });
+        firstMatch = j > -1;
+        if (secondMatch && firstMatch)
+            i = j;
+        return secondMatch && firstMatch;
+    });
+    return i;
+};
 var BSPLayout = (function () {
     function BSPLayout(rect) {
         var _this = this;
         this.leaves = [];
-        this.traverse = function (node, cb) {
-            cb(node);
-            var i = 0;
-            while (node.children[i]) {
-                _this.traverse(node.children[i], cb);
-                i++;
-            }
-        };
+        this.oldWindows = [];
         this.tileWindows = function (windows) {
             for (var i = 0; i < windows.length - _this.leaves.length; i++) {
-                var node = _this.leaves[_this.leaves.length - 1];
-                _this.leaves.splice(-1, 1);
-                node.addChild();
-                _this.leaves.push(node.children[0], node.children[1]);
+                var index = findWindowToSplit(windows);
+                var node = _this.leaves[index] || _this.leaves[_this.leaves.length - 1];
+                node.addChildren(_this.leaves);
             }
             if (_this.leaves.length > 1) {
+                var _loop_1 = function () {
+                    var window_1 = _this.oldWindows.filter(function (window) {
+                        return !windows.includes(window);
+                    })[0];
+                    var index = _this.leaves.findIndex(function (leaf) { return leaf.id === window_1.kwin.internalId; });
+                    var node = _this.leaves[index] || _this.leaves[_this.leaves.length - 1];
+                    node.remove(_this.leaves);
+                };
                 for (var i = 0; i < _this.leaves.length - windows.length; i++) {
-                    var node = _this.leaves[_this.leaves.length - 1];
-                    _this.leaves.splice(-2, 2);
-                    _this.leaves.push(node.parent);
+                    _loop_1();
                 }
             }
             windows.forEach(function (window, i) {
+                _this.leaves[i].id = window.kwin.internalId;
                 window.setFrameGeometry(_this.leaves[i].rect);
             });
+            _this.oldWindows = windows;
         };
         this.rect = rect;
         this.root = new Node(rect);
@@ -266,14 +284,53 @@ var BSPLayout = (function () {
 var Node = (function () {
     function Node(rect, parent) {
         var _this = this;
-        this.addChild = function () {
+        this.addChildren = function (leaves) {
             var rects = _this.rect.split(Ori.V);
-            _this.children = [new Node(rects[0], _this), new Node(rects[1], _this)];
+            _this.left = new Node(rects[0], _this);
+            _this.right = new Node(rects[1], _this);
+            leaves.splice(leaves.indexOf(_this), 1, _this.left);
+            leaves.push(_this.right);
+        };
+        this.remove = function (leaves) {
+            leaves.splice(leaves.indexOf(_this), 1);
+            if (!_this.bro.left) {
+                leaves.splice(leaves.indexOf(_this.bro), 1, _this.parent);
+            }
+            else {
+                _this.parent.set(_this.bro);
+            }
+        };
+        this.set = function (node) {
+            _this.left = node.left;
+            _this.right = node.right;
         };
         this.rect = rect;
         this.parent = parent;
-        this.depth = this.parent ? this.parent.depth + 1 : 0;
     }
+    Object.defineProperty(Node.prototype, "bro", {
+        get: function () {
+            if (this.parent.left === this) {
+                return this.parent.right;
+            }
+            else {
+                return this.parent.left;
+            }
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(Node.prototype, "which", {
+        get: function () {
+            if (this.parent.left === this) {
+                return "left";
+            }
+            else {
+                return "right";
+            }
+        },
+        enumerable: false,
+        configurable: true
+    });
     return Node;
 }());
 
