@@ -1,4 +1,4 @@
-import { Rect } from "../rect";
+import { Ori, Rect } from "../rect";
 import { Layout } from "../types/layout";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
@@ -24,7 +24,7 @@ export class Full extends BaseLayout {
   };
 
   createLayout = (layoutA: Layout) => {
-    const [rectA, rectB] = new Rect(layoutA.rect).split(true);
+    const [rectA, rectB] = new Rect(layoutA.rect).split(Ori.V);
 
     layoutA.setRect(rectA);
     const layoutB = new Columns(rectB);

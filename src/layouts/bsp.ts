@@ -1,4 +1,4 @@
-import { Rect } from "../rect";
+import { Ori, Rect } from "../rect";
 import { QRect } from "../types/qt";
 import { Window } from "../window";
 
@@ -76,7 +76,7 @@ export class Node {
   }
 
   addChild = () => {
-    const rects = this.rect.split(true);
+    const rects = this.rect.split(Ori.V);
     this.children = [new Node(rects[0], this), new Node(rects[1], this)];
   };
 }

@@ -13,6 +13,15 @@ export enum Dir {
 }
 
 /**
+ * Enum for orientation in two-dimensional space.
+ * @enum
+ */
+export enum Ori {
+  H = 0,
+  V = 1,
+}
+
+/**
  * Checks if `value` is between `min` and `max`.
  * @param value Value to check
  * @param min Minimum acceptable value
@@ -137,21 +146,21 @@ export class Rect implements QRect {
 
   /**
    * Creates two halves of `this`.
-   * @param v Creates vertical halves instead of horizontal ones
+   * @param ori {@link Ori|Orientation} for the split
    * @returns Two halves of `this`
    */
-  split = (v: boolean): [Rect, Rect] => {
+  split = (ori: Ori): [Rect, Rect] => {
     const rectA = this.clone();
     const rectB = rectA.clone();
 
-    if (v) {
-      rectA.height *= 0.5;
-      rectB.height *= 0.5;
-      rectB.y = rectA.y + rectA.height;
-    } else {
+    if (ori) {
       rectA.width *= 0.5;
       rectB.width *= 0.5;
       rectB.x = rectA.x + rectA.width;
+    } else {
+      rectA.height *= 0.5;
+      rectB.height *= 0.5;
+      rectB.y = rectA.y + rectA.height;
     }
 
     return [rectA, rectB];

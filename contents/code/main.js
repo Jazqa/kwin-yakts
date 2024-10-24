@@ -112,58 +112,6 @@ var config = {
     desktops: desktops,
 };
 
-var BSPLayout = (function () {
-    function BSPLayout(rect) {
-        var _this = this;
-        this.leaves = [];
-        this.traverse = function (node, cb) {
-            cb(node);
-            var i = 0;
-            while (node.children[i]) {
-                _this.traverse(node.children[i], cb);
-                i++;
-            }
-        };
-        this.tileWindows = function (windows) {
-            for (var i = 0; i < windows.length - _this.leaves.length; i++) {
-                var node = _this.leaves[_this.leaves.length - 1];
-                _this.leaves.splice(-1, 1);
-                node.addChild();
-                _this.leaves.push(node.children[0], node.children[1]);
-            }
-            if (_this.leaves.length > 1) {
-                for (var i = 0; i < _this.leaves.length - windows.length; i++) {
-                    var node = _this.leaves[_this.leaves.length - 1];
-                    _this.leaves.splice(-2, 2);
-                    _this.leaves.push(node.parent);
-                }
-            }
-            windows.forEach(function (window, i) {
-                window.setFrameGeometry(_this.leaves[i].rect);
-            });
-        };
-        this.rect = rect;
-        this.root = new Node(rect);
-        this.leaves.push(this.root);
-    }
-    return BSPLayout;
-}());
-var Node = (function () {
-    function Node(rect, parent) {
-        var _this = this;
-        this.addChild = function () {
-            var rects = _this.rect.split(true);
-            _this.children = [new Node(rects[0], _this), new Node(rects[1], _this)];
-        };
-        this.rect = rect;
-        this.parent = parent;
-        this.depth = this.parent ? this.parent.depth + 1 : 0;
-    }
-    return Node;
-}());
-
-var Layouts = [BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout];
-
 var Dir;
 (function (Dir) {
     Dir[Dir["Up"] = 1] = "Up";
@@ -171,6 +119,11 @@ var Dir;
     Dir[Dir["Left"] = 3] = "Left";
     Dir[Dir["Right"] = 4] = "Right";
 })(Dir || (Dir = {}));
+var Ori;
+(function (Ori) {
+    Ori[Ori["H"] = 0] = "H";
+    Ori[Ori["V"] = 1] = "V";
+})(Ori || (Ori = {}));
 var between = function (value, min, max) {
     return value >= min && value <= max;
 };
@@ -209,18 +162,18 @@ var Rect = (function () {
             _this.height = y2 - _this.y;
             return _this;
         };
-        this.split = function (v) {
+        this.split = function (ori) {
             var rectA = _this.clone();
             var rectB = rectA.clone();
-            if (v) {
-                rectA.height *= 0.5;
-                rectB.height *= 0.5;
-                rectB.y = rectA.y + rectA.height;
-            }
-            else {
+            if (ori) {
                 rectA.width *= 0.5;
                 rectB.width *= 0.5;
                 rectB.x = rectA.x + rectA.width;
+            }
+            else {
+                rectA.height *= 0.5;
+                rectB.height *= 0.5;
+                rectB.y = rectA.y + rectA.height;
             }
             return [rectA, rectB];
         };
@@ -273,6 +226,58 @@ var Rect = (function () {
     });
     return Rect;
 }());
+
+var BSPLayout = (function () {
+    function BSPLayout(rect) {
+        var _this = this;
+        this.leaves = [];
+        this.traverse = function (node, cb) {
+            cb(node);
+            var i = 0;
+            while (node.children[i]) {
+                _this.traverse(node.children[i], cb);
+                i++;
+            }
+        };
+        this.tileWindows = function (windows) {
+            for (var i = 0; i < windows.length - _this.leaves.length; i++) {
+                var node = _this.leaves[_this.leaves.length - 1];
+                _this.leaves.splice(-1, 1);
+                node.addChild();
+                _this.leaves.push(node.children[0], node.children[1]);
+            }
+            if (_this.leaves.length > 1) {
+                for (var i = 0; i < _this.leaves.length - windows.length; i++) {
+                    var node = _this.leaves[_this.leaves.length - 1];
+                    _this.leaves.splice(-2, 2);
+                    _this.leaves.push(node.parent);
+                }
+            }
+            windows.forEach(function (window, i) {
+                window.setFrameGeometry(_this.leaves[i].rect);
+            });
+        };
+        this.rect = rect;
+        this.root = new Node(rect);
+        this.leaves.push(this.root);
+    }
+    return BSPLayout;
+}());
+var Node = (function () {
+    function Node(rect, parent) {
+        var _this = this;
+        this.addChild = function () {
+            var rects = _this.rect.split(Ori.V);
+            _this.children = [new Node(rects[0], _this), new Node(rects[1], _this)];
+        };
+        this.rect = rect;
+        this.parent = parent;
+        this.depth = this.parent ? this.parent.depth + 1 : 0;
+    }
+    return Node;
+}());
+
+var Layouts = [BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout];
 
 var outputIndex = function (kwinOutput) {
     var index = workspace.screens.findIndex(function (_a) {
