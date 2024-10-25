@@ -14,10 +14,7 @@ export class YAKTS {
 
   constructor() {
     workspace.desktops.forEach(this.addKwinDesktop);
-    workspace.stackingOrder.forEach((kwinWindow, index) =>
-      this.addKwinWindow(kwinWindow, index === workspace.stackingOrder.length - 1)
-    );
-
+    workspace.stackingOrder.forEach(this.addKwinWindow);
     workspace.currentDesktopChanged.connect(this.tileWindows);
     workspace.windowAdded.connect(this.addKwinWindow);
     workspace.windowRemoved.connect(this.removeKwinWindow);
@@ -72,10 +69,9 @@ export class YAKTS {
   /**
    * Creates a new {@link Window} based on `kwinWindow` and adds it to `this.windows`.
    * @param kwinWindow {@link KWinWindow} to add
-   * @param loop Skips {@link YAKTS.windowAffectedOthers} call
    * @mutates `this.windows`
    */
-  addKwinWindow = (kwinWindow: KWinWindow, loop?: boolean) => {
+  addKwinWindow = (kwinWindow: KWinWindow) => {
     if (this.isKwinWindowAllowed(kwinWindow)) {
       const window = new Window(kwinWindow);
 
@@ -85,10 +81,7 @@ export class YAKTS {
       window.sizeChanged = (window: Window, oldRect: QRect) => this.windowSizeChanged(window, oldRect);
 
       this.windows.push(window);
-
-      if (!loop) {
-        this.windowAffectedOthers(window);
-      }
+      this.windowAffectedOthers(window);
     }
   };
 

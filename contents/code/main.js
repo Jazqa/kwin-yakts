@@ -227,53 +227,95 @@ var Rect = (function () {
     return Rect;
 }());
 
-var findWindowToSplit = function (windows) {
-    var firstMatch = false;
-    var i = -1;
-    workspace.stackingOrder
-        .slice()
-        .reverse()
-        .some(function (kwinWindow) {
-        var secondMatch = firstMatch;
-        var j = windows.findIndex(function (window) {
-            return window.kwin.internalId === kwinWindow.internalId;
-        });
-        firstMatch = j > -1;
-        if (secondMatch && firstMatch)
-            i = j;
-        return secondMatch && firstMatch;
-    });
-    return i;
+var find = function (node, cb) {
+    if (node) {
+        if (cb(node))
+            return;
+        find(node.left, cb);
+        find(node.right, cb);
+    }
 };
 var BSPLayout = (function () {
     function BSPLayout(rect) {
         var _this = this;
+        this.log = function () {
+            var nodes = [];
+            find(_this.root, function (node) {
+                nodes.push(node.id);
+                return false;
+            });
+            console.log(nodes.toString());
+        };
         this.leaves = [];
-        this.oldWindows = [];
+        this.windows = [];
+        this.indexToSplit = function (windows) {
+            var firstMatch = false;
+            var i = -1;
+            workspace.stackingOrder
+                .slice()
+                .reverse()
+                .some(function (kwinWindow) {
+                var secondMatch = firstMatch;
+                var j = windows.findIndex(function (window) {
+                    return window.kwin.internalId === kwinWindow.internalId;
+                });
+                firstMatch = j > -1;
+                if (secondMatch && firstMatch)
+                    i = j;
+                return secondMatch && firstMatch;
+            });
+            return i;
+        };
+        this.indexToRemove = function (windows) {
+            var i = -1;
+            _this.windows.some(function (window, j) {
+                if (windows.includes(window))
+                    return false;
+                i = j;
+                return true;
+            });
+            return i;
+        };
         this.tileWindows = function (windows) {
             for (var i = 0; i < windows.length - _this.leaves.length; i++) {
-                var index = findWindowToSplit(windows);
-                var node = _this.leaves[index] || _this.leaves[_this.leaves.length - 1];
-                node.addChildren(_this.leaves);
+                var index = _this.indexToSplit(windows);
+                _this.addLeaves(index);
             }
             if (_this.leaves.length > 1) {
-                var _loop_1 = function () {
-                    var window_1 = _this.oldWindows.filter(function (window) {
-                        return !windows.includes(window);
-                    })[0];
-                    var index = _this.leaves.findIndex(function (leaf) { return leaf.id === window_1.kwin.internalId; });
-                    var node = _this.leaves[index] || _this.leaves[_this.leaves.length - 1];
-                    node.remove(_this.leaves);
-                };
                 for (var i = 0; i < _this.leaves.length - windows.length; i++) {
-                    _loop_1();
+                    var index = _this.indexToRemove(windows);
+                    _this.removeLeaf(index);
                 }
             }
             windows.forEach(function (window, i) {
-                _this.leaves[i].id = window.kwin.internalId;
                 window.setFrameGeometry(_this.leaves[i].rect);
             });
-            _this.oldWindows = windows;
+            _this.windows = windows;
+        };
+        this.addLeaves = function (index) {
+            if (index < 0)
+                index = _this.leaves.length + index;
+            var branch = _this.leaves[index];
+            var rects = branch.rect.split(Ori.V);
+            branch.left = new Node(rects[0]);
+            branch.right = new Node(rects[1]);
+            _this.leaves.splice(index, 1, branch.left);
+            _this.leaves.splice(_this.leaves.length, 0, branch.right);
+        };
+        this.removeLeaf = function (index) {
+            if (index < 0)
+                index = _this.leaves.length + index;
+            var removed = _this.leaves.splice(index, 1)[0];
+            var parent;
+            find(_this.root, function (node) {
+                if (node.left === removed || node.right === removed) {
+                    parent = node;
+                    return true;
+                }
+                return false;
+            });
+            var remaining = parent.left === removed ? parent.right : parent.left;
+            parent.replaceWith(remaining, _this.leaves);
         };
         this.rect = rect;
         this.root = new Node(rect);
@@ -281,52 +323,34 @@ var BSPLayout = (function () {
     }
     return BSPLayout;
 }());
+var nextNodeId = 0;
 var Node = (function () {
-    function Node(rect, parent) {
+    function Node(rect) {
         var _this = this;
-        this.addChildren = function (leaves) {
-            var rects = _this.rect.split(Ori.V);
-            _this.left = new Node(rects[0], _this);
-            _this.right = new Node(rects[1], _this);
-            leaves.splice(leaves.indexOf(_this), 1, _this.left);
-            leaves.push(_this.right);
-        };
-        this.remove = function (leaves) {
-            leaves.splice(leaves.indexOf(_this), 1);
-            if (!_this.bro.left) {
-                leaves.splice(leaves.indexOf(_this.bro), 1, _this.parent);
-            }
-            else {
-                _this.parent.set(_this.bro);
-            }
-        };
-        this.set = function (node) {
+        this.replaceWith = function (node, leaves) {
+            _this.id = node.id;
             _this.left = node.left;
             _this.right = node.right;
+            if (node.leaf) {
+                leaves.splice(leaves.indexOf(node), 1, _this);
+            }
+            else {
+                find(_this, function (node) {
+                    if (!node.left || !node.right)
+                        return false;
+                    var rects = node.rect.split(Ori.V);
+                    node.left.rect = rects[0];
+                    node.right.rect = rects[1];
+                    return false;
+                });
+            }
         };
+        this.id = nextNodeId++;
         this.rect = rect;
-        this.parent = parent;
     }
-    Object.defineProperty(Node.prototype, "bro", {
+    Object.defineProperty(Node.prototype, "leaf", {
         get: function () {
-            if (this.parent.left === this) {
-                return this.parent.right;
-            }
-            else {
-                return this.parent.left;
-            }
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(Node.prototype, "which", {
-        get: function () {
-            if (this.parent.left === this) {
-                return "left";
-            }
-            else {
-                return "right";
-            }
+            return !this.left;
         },
         enumerable: false,
         configurable: true
@@ -592,7 +616,7 @@ var YAKTS = (function () {
             var desktop = new Desktop(kwinVirtualDesktop);
             _this.desktops.push(desktop);
         };
-        this.addKwinWindow = function (kwinWindow, loop) {
+        this.addKwinWindow = function (kwinWindow) {
             if (_this.isKwinWindowAllowed(kwinWindow)) {
                 var window_1 = new Window(kwinWindow);
                 window_1.affectedOthers = function (window) { return _this.windowAffectedOthers(window); };
@@ -600,9 +624,7 @@ var YAKTS = (function () {
                 window_1.positionChanged = function (window, oldRect) { return _this.windowPositionChanged(window, oldRect); };
                 window_1.sizeChanged = function (window, oldRect) { return _this.windowSizeChanged(window, oldRect); };
                 _this.windows.push(window_1);
-                if (!loop) {
-                    _this.windowAffectedOthers(window_1);
-                }
+                _this.windowAffectedOthers(window_1);
             }
         };
         this.removeKwinWindow = function (kwinWindow) {
@@ -690,9 +712,7 @@ var YAKTS = (function () {
             _this.tileWindows();
         };
         workspace.desktops.forEach(this.addKwinDesktop);
-        workspace.stackingOrder.forEach(function (kwinWindow, index) {
-            return _this.addKwinWindow(kwinWindow, index === workspace.stackingOrder.length - 1);
-        });
+        workspace.stackingOrder.forEach(this.addKwinWindow);
         workspace.currentDesktopChanged.connect(this.tileWindows);
         workspace.windowAdded.connect(this.addKwinWindow);
         workspace.windowRemoved.connect(this.removeKwinWindow);
