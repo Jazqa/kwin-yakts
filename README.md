@@ -26,7 +26,7 @@ The script is not supposed to be a replacement for a tiling window manager, but 
     plasmapkg2 --type kwinscript -i ./kwin-yakts
     mkdir -p ~/.local/share/kservices5
     ln -sf ~/.local/share/kwin/scripts/quarter-tiling/metadata.desktop ~/.local/share/kservices5/kwin-script-quarter-tiling.desktop
-    rm -r ./kwin-yakts
+    rm -rf ./kwin-yakts
 
 ## Configuration
 
@@ -47,7 +47,7 @@ Go to `System Settings » Shortcuts » Global Shortcuts » KWin` and search for 
 
     git clone https://github.com/Jazqa/kwin-yakts.git
     plasmapkg2 --type kwinscript -u ./kwin-yakts
-    rm -r ./kwin-yakts
+    rm -rf ./kwin-yakts
 
 Alternatively, set this repository as the git origin of `~/.local/share/kwin/scripts/quarter-tiling`. If you don't know how to do this, move the hidden .git folder inside the cloned folder to the location above. After this, the script can be updated by using `git fetch origin && git pull`.
 
