@@ -55,7 +55,7 @@ export class YAKTS {
    */
   addKwinDesktop = (kwinVirtualDesktop: KWinVirtualDesktop) => {
     // KWinVirtualDesktop is exluded
-    if (config.desktops.indexOf(kwinDesktopIndex(kwinVirtualDesktop))) return;
+    if (config.desktops.indexOf(kwinDesktopIndex(kwinVirtualDesktop)) > -1) return;
 
     // KWinVirtualDesktop is already added
     if (this.desktops.some((desktop) => desktop.kwin.id === kwinVirtualDesktop.id)) return;

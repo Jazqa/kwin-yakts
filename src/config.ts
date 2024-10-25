@@ -100,7 +100,8 @@ const captions: Array<string> = [
 
 const desktops: Array<number> = readConfigString("desktops", "")
   .split(", ")
-  .map((s) => Number(s));
+  .map((s) => !!s && Number(s))
+  .filter((s) => typeof s === "number");
 
 export default {
   auto,

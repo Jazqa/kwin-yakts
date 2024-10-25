@@ -1,6 +1,16 @@
 import { Ori, Rect } from "../rect";
-import { QRect } from "../types/qt";
 import { Window } from "../window";
+
+const log = (node: Node) => {
+  const nodes = [];
+
+  find(node, (node) => {
+    nodes.push(node.id);
+    return false;
+  });
+
+  console.log(nodes.toString());
+};
 
 const find = (node: Node, cb: (node: Node) => boolean) => {
   if (node) {
@@ -10,18 +20,23 @@ const find = (node: Node, cb: (node: Node) => boolean) => {
   }
 };
 
+const findParent = (root: Node, target: Node): Node => {
+  let parent: Node;
+
+  find(root, (node) => {
+    if (node.left === target || node.right === target) {
+      parent = node;
+      return true;
+    }
+    return false;
+  });
+
+  return parent;
+};
+
 export class BSPLayout {
-  log = () => {
-    const nodes = [];
-    find(this.root, (node) => {
-      nodes.push(node.id);
-      return false;
-    });
-
-    console.log(nodes.toString());
-  };
-
   rect: Rect;
+  ori: Ori;
 
   root: Node;
   leaves: Array<Node> = [];
@@ -30,6 +45,7 @@ export class BSPLayout {
 
   constructor(rect: Rect) {
     this.rect = rect;
+    this.ori = rect.width >= rect.height ? Ori.V : Ori.H;
     this.root = new Node(rect);
     this.leaves.push(this.root);
   }
@@ -38,6 +54,7 @@ export class BSPLayout {
    * Finds a {@link Window} to split.
    * @param windows Array of {@link Window|Windows} to search
    * @returns Index of `windows` to split (interchangeable with `this.leaves` indexing)
+   * @mutates `this.ori`
    */
   indexToSplit = (windows: Array<Window>) => {
     let firstMatch = false;
@@ -49,7 +66,17 @@ export class BSPLayout {
       .some((kwinWindow) => {
         const secondMatch = firstMatch;
         const j = windows.findIndex((window) => {
-          return window.kwin.internalId === kwinWindow.internalId;
+          if (window.kwin.internalId === kwinWindow.internalId) {
+            /**
+             * Sets the orientation according to the window's frameGeometry.
+             * Not necessarily the places for this, but makes the most sense at the moment.
+             */
+            if (firstMatch) {
+              this.ori = window.kwin.frameGeometry.width >= window.kwin.frameGeometry.height ? Ori.V : Ori.H;
+            }
+
+            return true;
+          }
         });
         firstMatch = j > -1;
         if (secondMatch && firstMatch) i = j;
@@ -107,8 +134,10 @@ export class BSPLayout {
 
   addLeaves = (index: number) => {
     if (index < 0) index = this.leaves.length + index; // -1 = this.leaves.length - 1
+
     const branch = this.leaves[index];
-    const rects = branch.rect.split(Ori.V);
+    const rects = branch.rect.split(this.ori);
+    branch.ori = this.ori;
 
     branch.left = new Node(rects[0]);
     branch.right = new Node(rects[1]);
@@ -119,18 +148,11 @@ export class BSPLayout {
 
   removeLeaf = (index: number) => {
     if (index < 0) index = this.leaves.length + index; // -1 = this.leaves.length - 1
+
     const removed = this.leaves.splice(index, 1)[0];
-
-    let parent: Node;
-    find(this.root, (node) => {
-      if (node.left === removed || node.right === removed) {
-        parent = node;
-        return true;
-      }
-      return false;
-    });
-
+    const parent = findParent(this.root, removed);
     const remaining = parent.left === removed ? parent.right : parent.left;
+
     parent.replaceWith(remaining, this.leaves);
   };
 }
@@ -143,6 +165,7 @@ export class Node {
   id: number;
 
   rect: Rect;
+  ori: Ori;
 
   left: Node | undefined;
   right: Node | undefined;
@@ -177,7 +200,7 @@ export class Node {
     } else {
       find(this, (node) => {
         if (!node.left || !node.right) return false;
-        const rects = node.rect.split(Ori.V);
+        const rects = node.rect.split(node.ori);
         node.left.rect = rects[0];
         node.right.rect = rects[1];
         return false;

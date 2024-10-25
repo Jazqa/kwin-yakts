@@ -98,7 +98,8 @@ var captions = __spreadArray([
     .filter(function (caption) { return caption; }), true);
 var desktops = readConfigString("desktops", "")
     .split(", ")
-    .map(function (s) { return Number(s); });
+    .map(function (s) { return !!s && Number(s); })
+    .filter(function (s) { return typeof s === "number"; });
 var config = {
     auto: auto,
     gap: gap,
@@ -235,17 +236,20 @@ var find = function (node, cb) {
         find(node.right, cb);
     }
 };
+var findParent = function (root, target) {
+    var parent;
+    find(root, function (node) {
+        if (node.left === target || node.right === target) {
+            parent = node;
+            return true;
+        }
+        return false;
+    });
+    return parent;
+};
 var BSPLayout = (function () {
     function BSPLayout(rect) {
         var _this = this;
-        this.log = function () {
-            var nodes = [];
-            find(_this.root, function (node) {
-                nodes.push(node.id);
-                return false;
-            });
-            console.log(nodes.toString());
-        };
         this.leaves = [];
         this.windows = [];
         this.indexToSplit = function (windows) {
@@ -257,7 +261,12 @@ var BSPLayout = (function () {
                 .some(function (kwinWindow) {
                 var secondMatch = firstMatch;
                 var j = windows.findIndex(function (window) {
-                    return window.kwin.internalId === kwinWindow.internalId;
+                    if (window.kwin.internalId === kwinWindow.internalId) {
+                        if (firstMatch) {
+                            _this.ori = window.kwin.frameGeometry.width >= window.kwin.frameGeometry.height ? Ori.V : Ori.H;
+                        }
+                        return true;
+                    }
                 });
                 firstMatch = j > -1;
                 if (secondMatch && firstMatch)
@@ -296,7 +305,8 @@ var BSPLayout = (function () {
             if (index < 0)
                 index = _this.leaves.length + index;
             var branch = _this.leaves[index];
-            var rects = branch.rect.split(Ori.V);
+            var rects = branch.rect.split(_this.ori);
+            branch.ori = _this.ori;
             branch.left = new Node(rects[0]);
             branch.right = new Node(rects[1]);
             _this.leaves.splice(index, 1, branch.left);
@@ -306,18 +316,12 @@ var BSPLayout = (function () {
             if (index < 0)
                 index = _this.leaves.length + index;
             var removed = _this.leaves.splice(index, 1)[0];
-            var parent;
-            find(_this.root, function (node) {
-                if (node.left === removed || node.right === removed) {
-                    parent = node;
-                    return true;
-                }
-                return false;
-            });
+            var parent = findParent(_this.root, removed);
             var remaining = parent.left === removed ? parent.right : parent.left;
             parent.replaceWith(remaining, _this.leaves);
         };
         this.rect = rect;
+        this.ori = rect.width >= rect.height ? Ori.V : Ori.H;
         this.root = new Node(rect);
         this.leaves.push(this.root);
     }
@@ -338,7 +342,7 @@ var Node = (function () {
                 find(_this, function (node) {
                     if (!node.left || !node.right)
                         return false;
-                    var rects = node.rect.split(Ori.V);
+                    var rects = node.rect.split(node.ori);
                     node.left.rect = rects[0];
                     node.right.rect = rects[1];
                     return false;
@@ -609,7 +613,7 @@ var YAKTS = (function () {
             }
         };
         this.addKwinDesktop = function (kwinVirtualDesktop) {
-            if (config.desktops.indexOf(kwinDesktopIndex(kwinVirtualDesktop)))
+            if (config.desktops.indexOf(kwinDesktopIndex(kwinVirtualDesktop)) > -1)
                 return;
             if (_this.desktops.some(function (desktop) { return desktop.kwin.id === kwinVirtualDesktop.id; }))
                 return;
