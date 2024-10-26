@@ -1,5 +1,4 @@
-import { BSPLayout } from "./layouts/bsp";
-import { Full } from "./layouts/Full";
+import { BSP } from "./layouts/bsp";
 
 /**
  *
@@ -21,4 +20,4 @@ import { Full } from "./layouts/Full";
  *
  */
 
-export const Layouts = [BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout, BSPLayout];
+export const Layouts = [BSP, BSP, BSP, BSP, BSP, BSP, BSP];

@@ -1,9 +1,29 @@
 import { KWinOutput, KWinVirtualDesktop } from "./types/kwin";
 
-export function readConfigString(key: string, defaultValue: any): string {
+export const readConfigString = (key: string, defaultValue: any): string => {
   return readConfig(key, defaultValue).toString();
-}
+};
 
-export function maximizeArea(output: KWinOutput, desktop: KWinVirtualDesktop) {
+export const maximizeArea = (output: KWinOutput, desktop: KWinVirtualDesktop) => {
   return workspace.clientArea(2, output, desktop);
-}
+};
+
+/**
+ * @todo 2ed6
+ *
+ * Unlike proper `.qml` interface, the `.ui` interface required by KWin doesn't support detecting outputs.
+ * As a result, the configuration interface is hard-coded for up to 4 outputs
+ * @param kwinOutput {@link KWinOutput} for which to find the index
+ * @returns Index of the output in {@link Workspace.screens}, which can be used to fetch configuration values that use the format:
+ * `kcfg_<key>_<output_index>`
+ */
+export const outputIndex = (kwinOutput: KWinOutput) => {
+  let index = workspace.screens.findIndex(({ serialNumber }) => serialNumber === kwinOutput.serialNumber);
+
+  // Supports more than 4 outputs by defaulting to 1st's configuration
+  if (index === -1) {
+    index = 0;
+  }
+
+  return index;
+};

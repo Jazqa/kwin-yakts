@@ -1,5 +1,6 @@
 import { Ori, Rect } from "../rect";
 import { Window } from "../window";
+import { Layout } from "./layout";
 
 const log = (node: Node) => {
   const nodes = [];
@@ -34,110 +35,57 @@ const findParent = (root: Node, target: Node): Node => {
   return parent;
 };
 
-export class BSPLayout {
+export class BSP extends Layout {
+  name: string = "BSP";
+
   rect: Rect;
-  ori: Ori;
 
   root: Node;
-  leaves: Array<Node> = [];
-
-  windows: Array<Window> = [];
+  leaves: Array<Node>;
 
   constructor(rect: Rect) {
-    this.rect = rect;
-    this.ori = rect.width >= rect.height ? Ori.V : Ori.H;
+    super(rect);
     this.root = new Node(rect);
-    this.leaves.push(this.root);
   }
 
   /**
-   * Finds a {@link Window} to split.
-   * @param windows Array of {@link Window|Windows} to search
-   * @returns Index of `windows` to split (interchangeable with `this.leaves` indexing)
-   * @mutates `this.ori`
+   * Adds missing leaves.
    */
-  indexToSplit = (windows: Array<Window>) => {
-    let firstMatch = false;
-    let i = -1;
-
-    workspace.stackingOrder
-      .slice()
-      .reverse()
-      .some((kwinWindow) => {
-        const secondMatch = firstMatch;
-        const j = windows.findIndex((window) => {
-          if (window.kwin.internalId === kwinWindow.internalId) {
-            /**
-             * Sets the orientation according to the window's frameGeometry.
-             * Not necessarily the places for this, but makes the most sense at the moment.
-             */
-            if (firstMatch) {
-              this.ori = window.kwin.frameGeometry.width >= window.kwin.frameGeometry.height ? Ori.V : Ori.H;
-            }
-
-            return true;
-          }
-        });
-        firstMatch = j > -1;
-        if (secondMatch && firstMatch) i = j;
-        return secondMatch && firstMatch;
-      });
-
-    return i;
+  addWindow = (window: Window, windows: Array<Window>, activeWindow?: Window) => {
+    if (!this.leaves) {
+      this.leaves = [this.root]; // First window takes root as a leaf!
+    } else {
+      const index = windows.indexOf(activeWindow);
+      this.addLeaves(index);
+    }
   };
 
   /**
-   * Finds a {@link Window} to remove.
-   * @param windows Array of {@link Window|Windows} to search
-   * @returns Index of `windows` to remove (interchangeable with `this.leaves` indexing)
+   * Removes excess leaves.
    */
-  indexToRemove = (windows: Array<Window>) => {
-    let i = -1;
-
-    this.windows.some((window, j) => {
-      if (windows.includes(window)) return false;
-      i = j;
-      return true;
-    });
-
-    return i;
+  removeWindow = (window: Window, windows: Array<Window>) => {
+    if (this.leaves.length === 1) {
+      this.leaves = undefined; // Last window, no leaves left!
+    } else {
+      const index = windows.indexOf(window);
+      this.removeLeaf(index);
+    }
   };
 
+  /**
+   * Applies leaves' {@link Rect|Rects} to {@link Window|Windows}.
+   */
   tileWindows = (windows: Array<Window>) => {
-    /**
-     * Adds missing leaves.
-     */
-    for (var i = 0; i < windows.length - this.leaves.length; i++) {
-      const index = this.indexToSplit(windows);
-      this.addLeaves(index);
-    }
-
-    /**
-     * Removes excess leaves.
-     */
-    if (this.leaves.length > 1) {
-      for (var i = 0; i < this.leaves.length - windows.length; i++) {
-        const index = this.indexToRemove(windows);
-        this.removeLeaf(index);
-      }
-    }
-
-    /**
-     * Applies leaves' {@link Rect|Rects} to {@link Window|Windows}.
-     */
     windows.forEach((window, i) => {
       window.setFrameGeometry(this.leaves[i].rect);
     });
-
-    this.windows = windows;
   };
 
   addLeaves = (index: number) => {
     if (index < 0) index = this.leaves.length + index; // -1 = this.leaves.length - 1
 
     const branch = this.leaves[index];
-    const rects = branch.rect.split(this.ori);
-    branch.ori = this.ori;
+    const rects = branch.rect.split(Ori.V);
 
     branch.left = new Node(rects[0]);
     branch.right = new Node(rects[1]);
@@ -165,7 +113,6 @@ export class Node {
   id: number;
 
   rect: Rect;
-  ori: Ori;
 
   left: Node | undefined;
   right: Node | undefined;
@@ -198,9 +145,12 @@ export class Node {
     if (node.leaf) {
       leaves.splice(leaves.indexOf(node), 1, this);
     } else {
+      /**
+       * Fixes rects for rest of the tree
+       */
       find(this, (node) => {
         if (!node.left || !node.right) return false;
-        const rects = node.rect.split(node.ori);
+        const rects = node.rect.split(Ori.V);
         node.left.rect = rects[0];
         node.right.rect = rects[1];
         return false;

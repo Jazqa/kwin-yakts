@@ -1,9 +1,22 @@
 import config from "./config";
-import { maximizeArea } from "./kwin";
-import { outputIndex } from "./output";
+import { maximizeArea, outputIndex } from "./kwin";
 import { Rect } from "./rect";
 import { KWinOutput, KWinVirtualDesktop, KWinWindow } from "./types/kwin";
 import { QRect } from "./types/qt";
+
+/**
+ * Callbacks for {@link YAKTS}.
+ */
+interface YAKTSCallbacks {
+  /** Triggered only if the effect **isn't** communicated by other signals (e.g. {@link movedToBottom}) */
+  windowAdded: (window: Window) => void;
+  windowRemoved: (window: Window) => void;
+  windowEnabledChanged: (window: Window, manual: boolean, push?: boolean) => void;
+  windowPositionChanged: (window: Window, oldRect: QRect) => void;
+  windowSizeChanged: (window: Window, oldRect: QRect) => void;
+  windowOutputChanged: (window: Window, from: KWinOutput, to: KWinOutput) => void;
+  windowDesktopsChanged: (window: Window, from: KWinVirtualDesktop[], to: KWinVirtualDesktop[]) => void;
+}
 
 /**
  * Represents a window managed by the script.
@@ -14,6 +27,8 @@ export class Window {
    * @property Pointer to the {@link KWinWindow} `this` augments
    */
   kwin: KWinWindow;
+
+  callbacks: YAKTSCallbacks;
 
   /**
    * @property Should `this` this be tiled by {@link YAKTS}.
@@ -32,8 +47,16 @@ export class Window {
    */
   disabled: boolean;
 
-  private kwinOutput: KWinOutput;
-  private kwinDesktops: Array<KWinVirtualDesktop>;
+  kwinOutput: KWinOutput;
+  kwinDesktops: KWinVirtualDesktop[];
+
+  get kwinDesktop() {
+    return this.kwinDesktops[0];
+  }
+
+  get layoutId() {
+    return this.kwinDesktop.id + this.kwinOutput.serialNumber;
+  }
 
   private move: boolean;
   private resize: boolean;
@@ -60,8 +83,9 @@ export class Window {
     );
   }
 
-  constructor(kwin: KWinWindow) {
+  constructor(kwin: KWinWindow, callbacks: YAKTSCallbacks) {
     this.kwin = kwin;
+    this.callbacks = callbacks;
 
     this.kwinOutput = kwin.output;
     this.kwinDesktops = kwin.desktops;
@@ -78,6 +102,8 @@ export class Window {
     this.kwin.maximizedChanged.connect(this.maximizedChanged);
     this.kwin.minimizedChanged.connect(this.minimizedChanged);
     this.kwin.fullScreenChanged.connect(this.fullScreenChanged);
+
+    this.callbacks.windowAdded(this);
   }
 
   remove = () => {
@@ -86,7 +112,8 @@ export class Window {
     this.kwin.desktopsChanged.disconnect(this.desktopsChanged);
     this.kwin.maximizedChanged.disconnect(this.maximizedChanged);
     this.kwin.fullScreenChanged.disconnect(this.fullScreenChanged);
-    this.affectedOthers(this);
+
+    this.callbacks.windowRemoved(this);
   };
 
   /**
@@ -96,12 +123,10 @@ export class Window {
    * @mutates `this.enabled`, `this.disabled`
    */
   enable = (manual?: boolean, push?: boolean) => {
-    if (manual || (this.disabled && !this.enabledByDefault)) {
+    if (manual || this.disabled) {
       this.disabled = false;
       this.enabled = true;
-      if (push) {
-        this.movedToBottom(this);
-      }
+      this.callbacks.windowEnabledChanged(this, manual, push);
     }
   };
 
@@ -113,8 +138,7 @@ export class Window {
   disable = (manual?: boolean) => {
     if (!manual) this.disabled = true;
     this.enabled = false;
-    this.affectedOthers(this);
-    if (manual) workspace.activeWindow = this.kwin;
+    this.callbacks.windowEnabledChanged(this, manual);
   };
 
   /**
@@ -146,7 +170,7 @@ export class Window {
    */
   startMove = (oldRect: QRect) => {
     this.move = true;
-    this.oldRect = new Rect(oldRect).kwin;
+    this.oldRect = new Rect(oldRect);
   };
 
   /**
@@ -158,7 +182,7 @@ export class Window {
     if (this.kwinOutput !== this.kwin.output) {
       this.outputChanged(true);
     } else if (this.enabled) {
-      this.positionChanged(this, this.oldRect);
+      this.callbacks.windowPositionChanged(this, this.oldRect);
     }
 
     this.move = false;
@@ -181,7 +205,7 @@ export class Window {
    * @mutates `this.resize`
    */
   stopResize = () => {
-    this.sizeChanged(this, this.oldRect);
+    this.callbacks.windowSizeChanged(this, this.oldRect);
     this.resize = false;
   };
 
@@ -269,13 +293,8 @@ export class Window {
    */
   outputChanged = (force?: boolean) => {
     if (force || !this.move) {
+      this.callbacks.windowOutputChanged(this, this.kwinOutput, this.kwin.output);
       this.kwinOutput = this.kwin.output;
-
-      if (this.enabledByDefault) {
-        this.enable(false, true);
-      } else {
-        this.disable();
-      }
     }
   };
 
@@ -287,22 +306,29 @@ export class Window {
    * @mutates `this.kwinDesktops`, `this.enabled`, `this.disabled`
    */
   desktopsChanged = () => {
-    if (this.kwin.desktops.length > 1) {
-      this.disable();
-    } else if (this.kwin.desktops.length === 1) {
-      this.enable(false, true);
-    }
-
+    // TODO
+    this.callbacks.windowDesktopsChanged(this, this.kwinDesktops, this.kwin.desktops);
     this.kwinDesktops = this.kwin.desktops;
   };
 
-  /**
-   * Callbacks for {@link YAKTS}
-   */
+  wasOnLayoutWith = (window: Window) => {
+    return this.kwinDesktop === window.kwinDesktop && this.kwinOutput === window.kwinOutput;
+  };
 
-  /** Triggered only if the effect **isn't** communicated by other signals (e.g. {@link movedToBottom}) */
-  affectedOthers: (window: Window) => void;
-  movedToBottom: (window: Window) => void;
-  positionChanged: (window: Window, oldRect: QRect) => void;
-  sizeChanged: (window: Window, oldRect: QRect) => void;
+  isOnLayoutWith = (window: Window) => {
+    return (
+      window.kwin.desktops.length === 1 &&
+      this.kwin.desktops.length === 1 &&
+      this.kwin.desktops[0] === window.kwin.desktops[0] &&
+      this.kwin.output === window.kwin.output
+    );
+  };
+
+  isOnOutput = (output: KWinOutput) => {
+    return (
+      this.kwin.desktops.length === 1 &&
+      this.kwin.desktops[0] === workspace.currentDesktop &&
+      this.kwin.output === output
+    );
+  };
 }
