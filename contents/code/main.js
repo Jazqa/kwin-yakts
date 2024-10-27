@@ -323,6 +323,10 @@ var BSP = (function (_super) {
                 _this.removeLeaf(index);
             }
         };
+        _this.resizeWindow = function (window, windows, oldRect) {
+            var index = windows.indexOf(window);
+            findParent(_this.root, _this.leaves[index]);
+        };
         _this.tileWindows = function (windows) {
             windows.forEach(function (window, i) {
                 window.setFrameGeometry(_this.leaves[i].rect);
@@ -332,7 +336,7 @@ var BSP = (function (_super) {
             if (index < 0)
                 index = _this.leaves.length + index;
             var branch = _this.leaves[index];
-            var rects = branch.rect.split(Ori.V);
+            var rects = branch.rect.split(branch.ori);
             branch.left = new Node(rects[0]);
             branch.right = new Node(rects[1]);
             _this.leaves.splice(index, 1, branch.left);
@@ -366,7 +370,7 @@ var Node = (function () {
                 find(_this, function (node) {
                     if (!node.left || !node.right)
                         return false;
-                    var rects = node.rect.split(Ori.V);
+                    var rects = node.rect.split(node.ori);
                     node.left.rect = rects[0];
                     node.right.rect = rects[1];
                     return false;
@@ -375,6 +379,7 @@ var Node = (function () {
         };
         this.id = nextNodeId++;
         this.rect = rect;
+        this.ori = rect.width >= rect.height ? Ori.V : Ori.H;
     }
     Object.defineProperty(Node.prototype, "leaf", {
         get: function () {

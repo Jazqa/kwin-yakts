@@ -1,4 +1,5 @@
 import { Ori, Rect } from "../rect";
+import { QRect } from "../types/qt";
 import { Window } from "../window";
 import { Layout } from "./layout";
 
@@ -72,6 +73,11 @@ export class BSP extends Layout {
     }
   };
 
+  resizeWindow = (window: Window, windows: Array<Window>, oldRect: QRect) => {
+    const index = windows.indexOf(window);
+    const parent = findParent(this.root, this.leaves[index]);
+  };
+
   /**
    * Applies leaves' {@link Rect|Rects} to {@link Window|Windows}.
    */
@@ -85,7 +91,7 @@ export class BSP extends Layout {
     if (index < 0) index = this.leaves.length + index; // -1 = this.leaves.length - 1
 
     const branch = this.leaves[index];
-    const rects = branch.rect.split(Ori.V);
+    const rects = branch.rect.split(branch.ori);
 
     branch.left = new Node(rects[0]);
     branch.right = new Node(rects[1]);
@@ -113,6 +119,7 @@ export class Node {
   id: number;
 
   rect: Rect;
+  ori: Ori;
 
   left: Node | undefined;
   right: Node | undefined;
@@ -124,6 +131,7 @@ export class Node {
   constructor(rect: Rect) {
     this.id = nextNodeId++;
     this.rect = rect;
+    this.ori = rect.width >= rect.height ? Ori.V : Ori.H;
   }
 
   /**
@@ -150,7 +158,7 @@ export class Node {
        */
       find(this, (node) => {
         if (!node.left || !node.right) return false;
-        const rects = node.rect.split(Ori.V);
+        const rects = node.rect.split(node.ori);
         node.left.rect = rects[0];
         node.right.rect = rects[1];
         return false;
