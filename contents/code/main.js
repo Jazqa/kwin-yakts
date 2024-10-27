@@ -635,17 +635,11 @@ var YAKTS = (function () {
         this.isKwinWindowAllowed = function (kwinWindow) {
             return kwinWindow.managed && kwinWindow.normalWindow && kwinWindow.moveable && kwinWindow.resizeable;
         };
-        this.tileWindows = function (windowA) {
-            if (windowA) {
-                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
-                _this.layouts.get(getWindowLayoutId(windowA)).tileWindows(windows);
-            }
-            else {
-                workspace.screens.forEach(function (output) {
-                    var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnOutputLayout(output); });
-                    _this.layouts.get(getOutputLayoutId(output)).tileWindows(windows);
-                });
-            }
+        this.tileWindows = function () {
+            workspace.screens.forEach(function (output) {
+                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnOutputLayout(output); });
+                _this.layouts.get(getOutputLayoutId(output)).tileWindows(windows);
+            });
         };
         this.swapWindows = function (i, j) {
             var window = _this.windows[i];
@@ -666,7 +660,7 @@ var YAKTS = (function () {
                     .slice()
                     .sort(function (a, b) { return workspace.stackingOrder.indexOf(b.kwin) - workspace.stackingOrder.indexOf(a.kwin); })[1];
                 _this.layouts.get(getWindowLayoutId(windowA)).addWindow(windowA, windows, activeWindow);
-                _this.tileWindows(windowA);
+                _this.tileWindows();
             }
         };
         this.windowRemoved = function (windowA) {
@@ -676,7 +670,7 @@ var YAKTS = (function () {
             }
             _this.windows.splice(_this.windows.indexOf(windowA), 1);
             if (windowA.enabled)
-                _this.tileWindows(windowA);
+                _this.tileWindows();
         };
         this.windowEnabledChanged = function (windowA, manual, push) {
             if (push)
@@ -687,7 +681,7 @@ var YAKTS = (function () {
             else {
                 _this.windowDisabled(windowA, manual);
             }
-            _this.tileWindows(windowA);
+            _this.tileWindows();
         };
         this.windowEnabled = function (windowA) {
             var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
@@ -721,7 +715,7 @@ var YAKTS = (function () {
             var toLayout = _this.layouts.get(getLayoutId(windowA.kwinActivities[0], to[0], windowA.kwinOutput));
             var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnWindowLayout(windowA); });
             toLayout.addWindow(windowA, toWindows);
-            _this.tileWindows(windowA);
+            _this.tileWindows();
         };
         this.windowActivitiesChanged = function (windowA, from, to) {
             var fromLayout = _this.layouts.get(getLayoutId(from[0], windowA.kwinDesktops[0], windowA.kwinOutput));
@@ -731,13 +725,13 @@ var YAKTS = (function () {
             var toLayout = _this.layouts.get(getLayoutId(to[0], windowA.kwinDesktops[0], windowA.kwinOutput));
             var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnWindowLayout(windowA); });
             toLayout.addWindow(windowA, toWindows);
-            _this.tileWindows(windowA);
+            _this.tileWindows();
         };
         this.windowSizeChanged = function (windowA, oldRect) {
             var layout = _this.layouts.get(getWindowLayoutId(windowA));
             var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
             layout.resizeWindow(windowA, windows, oldRect);
-            _this.tileWindows(windowA);
+            _this.tileWindows();
         };
         this.windowPositionChanged = function (windowA, oldRect) {
             var windows = _this.windows.filter(function (windowB) { return windowB !== windowA && windowB.wasOnWindowLayout(windowA); });
@@ -754,7 +748,7 @@ var YAKTS = (function () {
             if (nearestWindow !== windowA) {
                 _this.swapWindows(_this.windows.indexOf(windowA), _this.windows.indexOf(nearestWindow));
             }
-            _this.tileWindows(windowA);
+            _this.tileWindows();
         };
         this.callbacks = {
             windowAdded: this.windowAdded,

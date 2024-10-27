@@ -103,16 +103,11 @@ export class YAKTS {
   /**
    * Finds the current {@link Desktop} from `this.desktops` and calls its {@link Desktop.tileWindows|tileWindows}.
    */
-  tileWindows = (windowA?: Window) => {
-    if (windowA) {
-      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
-      this.layouts.get(getWindowLayoutId(windowA)).tileWindows(windows);
-    } else {
-      workspace.screens.forEach((output) => {
-        const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnOutputLayout(output));
-        this.layouts.get(getOutputLayoutId(output)).tileWindows(windows);
-      });
-    }
+  tileWindows = () => {
+    workspace.screens.forEach((output) => {
+      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnOutputLayout(output));
+      this.layouts.get(getOutputLayoutId(output)).tileWindows(windows);
+    });
   };
 
   /**
@@ -161,7 +156,7 @@ export class YAKTS {
 
       this.layouts.get(getWindowLayoutId(windowA)).addWindow(windowA, windows, activeWindow);
 
-      this.tileWindows(windowA);
+      this.tileWindows();
     }
   };
 
@@ -174,7 +169,7 @@ export class YAKTS {
     // Note: `window` has to be part of this.windows, **splice last!**
     this.windows.splice(this.windows.indexOf(windowA), 1);
 
-    if (windowA.enabled) this.tileWindows(windowA);
+    if (windowA.enabled) this.tileWindows();
   };
 
   /**
@@ -193,7 +188,7 @@ export class YAKTS {
       this.windowDisabled(windowA, manual);
     }
 
-    this.tileWindows(windowA);
+    this.tileWindows();
   };
 
   windowEnabled = (windowA: Window) => {
@@ -238,7 +233,7 @@ export class YAKTS {
     const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnWindowLayout(windowA));
     toLayout.addWindow(windowA, toWindows);
 
-    this.tileWindows(windowA);
+    this.tileWindows();
   };
 
   windowActivitiesChanged = (windowA: Window, from: string[], to: string[]) => {
@@ -252,7 +247,7 @@ export class YAKTS {
     const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnWindowLayout(windowA));
     toLayout.addWindow(windowA, toWindows);
 
-    this.tileWindows(windowA);
+    this.tileWindows();
   };
 
   /**
@@ -266,7 +261,7 @@ export class YAKTS {
     const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
     layout.resizeWindow(windowA, windows, oldRect);
 
-    this.tileWindows(windowA);
+    this.tileWindows();
   };
 
   /**
@@ -298,7 +293,7 @@ export class YAKTS {
       this.swapWindows(this.windows.indexOf(windowA), this.windows.indexOf(nearestWindow));
     }
 
-    this.tileWindows(windowA);
+    this.tileWindows();
   };
 
   callbacks = {
