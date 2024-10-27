@@ -121,6 +121,8 @@ export class Window {
    * @mutates `this.enabled`, `this.disabled`
    */
   enable = (manual?: boolean, push?: boolean) => {
+    if (!this.enabledByDefault) return;
+
     if (manual || this.disabled) {
       this.disabled = false;
       this.enabled = true;

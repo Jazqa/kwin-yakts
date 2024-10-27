@@ -400,6 +400,8 @@ var Window = (function () {
             _this.callbacks.windowRemoved(_this);
         };
         this.enable = function (manual, push) {
+            if (!_this.enabledByDefault)
+                return;
             if (manual || _this.disabled) {
                 _this.disabled = false;
                 _this.enabled = true;
