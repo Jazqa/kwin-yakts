@@ -17,7 +17,7 @@ export class YAKTS {
   constructor() {
     this.addLayouts();
     workspace.stackingOrder.forEach(this.addKwinWindow);
-    // workspace.currentDesktopChanged.connect(this.tileWindows);
+    workspace.currentDesktopChanged.connect(() => this.tileWindows());
     workspace.windowAdded.connect(this.addKwinWindow);
     workspace.windowRemoved.connect(this.removeKwinWindow);
     // workspace.windowActivated.connect(this.activateKwinWindow);
@@ -214,12 +214,22 @@ export class YAKTS {
     this.tileWindows();
   };
 
-  windowDesktopsChanged = (window: Window, from: KWinVirtualDesktop[], to: KWinVirtualDesktop[]) => {
-    this.layouts.get(from[0].id + window.kwinOutput.serialNumber).removeWindow(window, this.windows);
+  windowDesktopsChanged = (windowA: Window, from: KWinVirtualDesktop[], to: KWinVirtualDesktop[]) => {
+    const fromWindows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnLayoutWith(windowA));
+
+    this.pushWindow(windowA);
+
+    const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
+
+    if (from.length === 1) {
+      this.layouts.get(from[0].id + windowA.kwinOutput.serialNumber).removeWindow(windowA, fromWindows);
+    }
 
     if (to.length === 1) {
-      this.layouts.get(to[0].id + window.kwinOutput.serialNumber).addWindow(window, this.windows);
+      this.layouts.get(to[0].id + windowA.kwinOutput.serialNumber).addWindow(windowA, toWindows);
     }
+
+    this.tileWindows();
   };
 
   /**

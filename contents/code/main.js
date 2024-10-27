@@ -664,11 +664,17 @@ var YAKTS = (function () {
             _this.layouts.get(windowA.kwinDesktop.id + to.serialNumber).addWindow(windowA, toWindows);
             _this.tileWindows();
         };
-        this.windowDesktopsChanged = function (window, from, to) {
-            _this.layouts.get(from[0].id + window.kwinOutput.serialNumber).removeWindow(window, _this.windows);
-            if (to.length === 1) {
-                _this.layouts.get(to[0].id + window.kwinOutput.serialNumber).addWindow(window, _this.windows);
+        this.windowDesktopsChanged = function (windowA, from, to) {
+            var fromWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnLayoutWith(windowA); });
+            _this.pushWindow(windowA);
+            var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
+            if (from.length === 1) {
+                _this.layouts.get(from[0].id + windowA.kwinOutput.serialNumber).removeWindow(windowA, fromWindows);
             }
+            if (to.length === 1) {
+                _this.layouts.get(to[0].id + windowA.kwinOutput.serialNumber).addWindow(windowA, toWindows);
+            }
+            _this.tileWindows();
         };
         this.windowSizeChanged = function (windowA, oldRect) {
             var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
@@ -728,6 +734,7 @@ var YAKTS = (function () {
         };
         this.addLayouts();
         workspace.stackingOrder.forEach(this.addKwinWindow);
+        workspace.currentDesktopChanged.connect(function () { return _this.tileWindows(); });
         workspace.windowAdded.connect(this.addKwinWindow);
         workspace.windowRemoved.connect(this.removeKwinWindow);
         registerShortcut("(YAKTS) Tile Window", "", "Meta+F", this.toggleActiveWindow);

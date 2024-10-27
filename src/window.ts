@@ -306,7 +306,6 @@ export class Window {
    * @mutates `this.kwinDesktops`, `this.enabled`, `this.disabled`
    */
   desktopsChanged = () => {
-    // TODO
     this.callbacks.windowDesktopsChanged(this, this.kwinDesktops, this.kwin.desktops);
     this.kwinDesktops = this.kwin.desktops;
   };
