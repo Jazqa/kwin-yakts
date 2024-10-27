@@ -434,7 +434,9 @@ var Window = (function () {
             _this.callbacks.windowRemoved(_this);
         };
         this.enable = function (manual, push) {
-            if (!_this.enabledByDefault)
+            if (_this.hardDisabled)
+                return;
+            if (!manual && _this.softDisabled)
                 return;
             if (manual || _this.disabled) {
                 _this.disabled = false;
@@ -443,6 +445,8 @@ var Window = (function () {
             }
         };
         this.disable = function (manual) {
+            if (!_this.enabled)
+                return;
             if (!manual)
                 _this.disabled = true;
             _this.enabled = false;
@@ -599,8 +603,8 @@ var Window = (function () {
         this.kwinActivities = kwin.activities;
         this.move = false;
         this.resize = false;
-        this.disabled = !this.enabledByDefault;
-        this.enabled = this.enabledByDefault;
+        this.disabled = this.hardDisabled || this.softDisabled;
+        this.enabled = !this.disabled;
         this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
         this.kwin.outputChanged.connect(this.outputChanged);
         this.kwin.desktopsChanged.connect(this.desktopsChanged);
@@ -610,17 +614,23 @@ var Window = (function () {
         this.kwin.activitiesChanged.connect(this.activitiesChanged);
         this.callbacks.windowAdded(this);
     }
-    Object.defineProperty(Window.prototype, "enabledByDefault", {
+    Object.defineProperty(Window.prototype, "hardDisabled", {
         get: function () {
-            var _this = this;
-            return (!this.kwin.minimized &&
+            return !(!this.kwin.minimized &&
                 !this.kwin.fullScreen &&
                 !this.isMaximized() &&
                 this.kwin.desktops.length === 1 &&
                 this.kwin.activities.length === 1 &&
                 this.kwin.frameGeometry.width >= config.minWidth &&
-                this.kwin.frameGeometry.height >= config.minHeight &&
-                config.auto[outputIndex(this.kwin.output)] &&
+                this.kwin.frameGeometry.height >= config.minHeight);
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(Window.prototype, "softDisabled", {
+        get: function () {
+            var _this = this;
+            return !(config.auto[outputIndex(this.kwin.output)] &&
                 config.processes.indexOf(this.kwin.resourceClass.toString().toLowerCase()) === -1 &&
                 config.processes.indexOf(this.kwin.resourceName.toString().toLowerCase()) === -1 &&
                 !config.captions.some(function (caption) { return _this.kwin.caption.toLowerCase().includes(caption.toLowerCase()); }));

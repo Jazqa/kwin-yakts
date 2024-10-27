@@ -63,15 +63,20 @@ export class Window {
   /**
    * @getter Much like {@link YAKTS.isKwinWindowAllowed}, checks if `this.enabled` should be `true` by default
    */
-  get enabledByDefault() {
-    return (
+  get hardDisabled() {
+    return !(
       !this.kwin.minimized &&
       !this.kwin.fullScreen &&
       !this.isMaximized() &&
       this.kwin.desktops.length === 1 &&
       this.kwin.activities.length === 1 &&
       this.kwin.frameGeometry.width >= config.minWidth &&
-      this.kwin.frameGeometry.height >= config.minHeight &&
+      this.kwin.frameGeometry.height >= config.minHeight
+    );
+  }
+
+  get softDisabled() {
+    return !(
       config.auto[outputIndex(this.kwin.output)] &&
       config.processes.indexOf(this.kwin.resourceClass.toString().toLowerCase()) === -1 &&
       config.processes.indexOf(this.kwin.resourceName.toString().toLowerCase()) === -1 &&
@@ -90,8 +95,8 @@ export class Window {
     this.move = false;
     this.resize = false;
 
-    this.disabled = !this.enabledByDefault;
-    this.enabled = this.enabledByDefault;
+    this.disabled = this.hardDisabled || this.softDisabled;
+    this.enabled = !this.disabled;
 
     this.kwin.moveResizedChanged.connect(this.moveResizedChanged);
     this.kwin.outputChanged.connect(this.outputChanged);
@@ -121,8 +126,10 @@ export class Window {
    * @mutates `this.enabled`, `this.disabled`
    */
   enable = (manual?: boolean, push?: boolean) => {
-    if (!this.enabledByDefault) return;
+    if (this.hardDisabled) return;
+    if (!manual && this.softDisabled) return;
 
+    // If `this` was disabled manually, `this` can only be re-enabled manually
     if (manual || this.disabled) {
       this.disabled = false;
       this.enabled = true;
@@ -136,7 +143,9 @@ export class Window {
    * @mutates `this.enabled`, `this.disabled`
    */
   disable = (manual?: boolean) => {
+    if (!this.enabled) return;
     if (!manual) this.disabled = true;
+
     this.enabled = false;
     this.callbacks.windowEnabledChanged(this, manual);
   };
