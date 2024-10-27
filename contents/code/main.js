@@ -324,8 +324,37 @@ var BSP = (function (_super) {
             }
         };
         _this.resizeWindow = function (window, windows, oldRect) {
-            var index = windows.indexOf(window);
-            findParent(_this.root, _this.leaves[index]);
+            var newRect = window.kwin.frameGeometry;
+            var leaf = _this.leaves[windows.indexOf(window)];
+            var parent = findParent(_this.root, leaf);
+            var sibling = parent.left === leaf ? parent.right : parent.left;
+            var side = parent.left === leaf ? "left" : "right";
+            var x = newRect.width - oldRect.width;
+            var y = newRect.height - oldRect.height;
+            if (parent.ori === Ori.V) {
+                if (side === "left" && newRect.x === oldRect.x) {
+                    leaf.rect.width += x;
+                    sibling.rect.width -= x;
+                    sibling.rect.x += x;
+                }
+                else if (side === "right" && newRect.x !== oldRect.x) {
+                    sibling.rect.width -= x;
+                    leaf.rect.width += x;
+                    leaf.rect.x -= x;
+                }
+            }
+            else {
+                if (side === "left" && newRect.y === oldRect.y) {
+                    leaf.rect.height += y;
+                    sibling.rect.height -= y;
+                    sibling.rect.y += y;
+                }
+                else if (side === "right" && newRect.y !== oldRect.y) {
+                    sibling.rect.height -= y;
+                    leaf.rect.height += y;
+                    leaf.rect.y -= y;
+                }
+            }
         };
         _this.tileWindows = function (windows) {
             windows.forEach(function (window, i) {

@@ -74,8 +74,41 @@ export class BSP extends Layout {
   };
 
   resizeWindow = (window: Window, windows: Array<Window>, oldRect: QRect) => {
-    const index = windows.indexOf(window);
-    const parent = findParent(this.root, this.leaves[index]);
+    const newRect = window.kwin.frameGeometry;
+
+    const leaf = this.leaves[windows.indexOf(window)];
+    const parent = findParent(this.root, leaf);
+    const sibling = parent.left === leaf ? parent.right : parent.left;
+    const side = parent.left === leaf ? "left" : "right";
+
+    const x = newRect.width - oldRect.width;
+    const y = newRect.height - oldRect.height;
+
+    if (parent.ori === Ori.V) {
+      // Horizontally resize leaf and sibling
+      // TODO: AND REST OF THE TREE
+      if (side === "left" && newRect.x === oldRect.x) {
+        leaf.rect.width += x;
+        sibling.rect.width -= x;
+        sibling.rect.x += x;
+      } else if (side === "right" && newRect.x !== oldRect.x) {
+        sibling.rect.width -= x;
+        leaf.rect.width += x;
+        leaf.rect.x -= x;
+      }
+    } else {
+      // Vertically resize leaf and sibling
+      // TODO: AND REST OF THE TREE
+      if (side === "left" && newRect.y === oldRect.y) {
+        leaf.rect.height += y;
+        sibling.rect.height -= y;
+        sibling.rect.y += y;
+      } else if (side === "right" && newRect.y !== oldRect.y) {
+        sibling.rect.height -= y;
+        leaf.rect.height += y;
+        leaf.rect.y -= y;
+      }
+    }
   };
 
   /**
