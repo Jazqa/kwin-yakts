@@ -1,4 +1,5 @@
-import { KWinOutput, KWinVirtualDesktop } from "./types/kwin";
+import { KWinOutput, KWinVirtualDesktop, KWinWindow } from "./types/kwin";
+import { Window } from "./window";
 
 export const readConfigString = (key: string, defaultValue: any): string => {
   return readConfig(key, defaultValue).toString();
@@ -26,4 +27,20 @@ export const outputIndex = (kwinOutput: KWinOutput) => {
   }
 
   return index;
+};
+
+export const getLayoutId = (kwinActivity: string, kwinDesktop: KWinVirtualDesktop, kwinOutput: KWinOutput) => {
+  return kwinActivity + kwinDesktop?.id + kwinOutput.serialNumber;
+};
+
+export const getCurrentLayoutId = () => {
+  return getLayoutId(workspace.currentActivity, workspace.currentDesktop, workspace.activeScreen);
+};
+
+export const getOutputLayoutId = (kwinOutput: KWinOutput) => {
+  return getLayoutId(workspace.currentActivity, workspace.currentDesktop, kwinOutput);
+};
+
+export const getWindowLayoutId = (window: Window) => {
+  return getLayoutId(window.kwinActivities[0], window.kwinDesktops[0], window.kwinOutput);
 };

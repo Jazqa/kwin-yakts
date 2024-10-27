@@ -16,6 +16,7 @@ interface YAKTSCallbacks {
   windowSizeChanged: (window: Window, oldRect: QRect) => void;
   windowOutputChanged: (window: Window, from: KWinOutput, to: KWinOutput) => void;
   windowDesktopsChanged: (window: Window, from: KWinVirtualDesktop[], to: KWinVirtualDesktop[]) => void;
+  windowActivitiesChanged: (window: Window, from: string[], to: string[]) => void;
 }
 
 /**
@@ -49,14 +50,7 @@ export class Window {
 
   kwinOutput: KWinOutput;
   kwinDesktops: KWinVirtualDesktop[];
-
-  get kwinDesktop() {
-    return this.kwinDesktops[0];
-  }
-
-  get layoutId() {
-    return this.kwinDesktop.id + this.kwinOutput.serialNumber;
-  }
+  kwinActivities: string[];
 
   private move: boolean;
   private resize: boolean;
@@ -74,6 +68,8 @@ export class Window {
       !this.kwin.minimized &&
       !this.kwin.fullScreen &&
       !this.isMaximized() &&
+      this.kwin.desktops.length === 1 &&
+      this.kwin.activities.length === 1 &&
       this.kwin.frameGeometry.width >= config.minWidth &&
       this.kwin.frameGeometry.height >= config.minHeight &&
       config.auto[outputIndex(this.kwin.output)] &&
@@ -89,6 +85,7 @@ export class Window {
 
     this.kwinOutput = kwin.output;
     this.kwinDesktops = kwin.desktops;
+    this.kwinActivities = kwin.activities;
 
     this.move = false;
     this.resize = false;
@@ -102,6 +99,7 @@ export class Window {
     this.kwin.maximizedChanged.connect(this.maximizedChanged);
     this.kwin.minimizedChanged.connect(this.minimizedChanged);
     this.kwin.fullScreenChanged.connect(this.fullScreenChanged);
+    this.kwin.activitiesChanged.connect(this.activitiesChanged);
 
     this.callbacks.windowAdded(this);
   }
@@ -293,38 +291,99 @@ export class Window {
    */
   outputChanged = (force?: boolean) => {
     if (force || !this.move) {
-      this.callbacks.windowOutputChanged(this, this.kwinOutput, this.kwin.output);
+      if (this.enabled) {
+        this.callbacks.windowOutputChanged(this, this.kwinOutput, this.kwin.output);
+      }
+
       this.kwinOutput = this.kwin.output;
     }
   };
 
   /**
-   * @todo cf3f
-   *
    * Callback triggered when `kwin`'s desktops change.
    * Toggles `this.enabled` accordingly.
    * @mutates `this.kwinDesktops`, `this.enabled`, `this.disabled`
    */
   desktopsChanged = () => {
-    this.callbacks.windowDesktopsChanged(this, this.kwinDesktops, this.kwin.desktops);
+    if (this.kwinDesktops === this.kwin.desktops) return;
+
+    const oldLength = this.kwinDesktops.length;
+    const newLength = this.kwin.desktops.length;
+
+    if (this.enabled && oldLength === 1 && newLength === 1) {
+      this.callbacks.windowDesktopsChanged(this, this.kwinDesktops, this.kwin.desktops);
+    }
+
+    // Changed from one to many
+    if (oldLength === 1 && newLength !== 1) {
+      this.disable();
+    }
+
+    // DISABLE BEFORE
     this.kwinDesktops = this.kwin.desktops;
+    // ENABLE AFTER
+
+    // Changed from many to one
+    if (oldLength !== 1 && newLength === 1) {
+      this.enable(false, true);
+    }
   };
 
-  wasOnLayoutWith = (window: Window) => {
-    return this.kwinDesktop === window.kwinDesktop && this.kwinOutput === window.kwinOutput;
+  /**
+   * Callback triggered when `kwin`'s activities change.
+   * Toggles `this.enabled` accordingly.
+   * @mutates `this.kwinActivities`, `this.enabled`, `this.disabled`
+   */
+  activitiesChanged = () => {
+    if (this.kwinActivities === this.kwin.activities) return;
+
+    const oldLength = this.kwinActivities.length;
+    const newLength = this.kwin.activities.length;
+
+    // Changed from one to other
+    if (this.enabled && oldLength === 1 && newLength === 1) {
+      this.callbacks.windowActivitiesChanged(this, this.kwinActivities, this.kwin.activities);
+    }
+
+    // Changed from one to many
+    if (oldLength === 1 && newLength !== 1) {
+      this.disable();
+    }
+
+    // DISABLE BEFORE
+    this.kwinActivities = this.kwin.activities;
+    // ENABLE AFTER
+
+    // Changed from many to one
+    if (oldLength !== 1 && newLength === 1) {
+      this.enable(false, true);
+    }
   };
 
-  isOnLayoutWith = (window: Window) => {
+  wasOnWindowLayout = (window: Window) => {
     return (
+      this.kwinActivities[0] === window.kwinActivities[0] &&
+      this.kwinDesktops[0] === window.kwinDesktops[0] &&
+      this.kwinOutput === window.kwinOutput
+    );
+  };
+
+  isOnWindowLayout = (window: Window) => {
+    return (
+      window.kwin.activities.length === 1 &&
       window.kwin.desktops.length === 1 &&
+      this.kwin.activities.length === 1 &&
       this.kwin.desktops.length === 1 &&
+      this.kwin.activities[0] === window.kwin.activities[0] &&
       this.kwin.desktops[0] === window.kwin.desktops[0] &&
       this.kwin.output === window.kwin.output
     );
   };
 
-  isOnOutput = (output: KWinOutput) => {
+  isOnOutputLayout = (output: KWinOutput) => {
     return (
+      this.kwin.activities.length === 1 &&
+      this.kwin.activities[0] === workspace.currentActivity &&
       this.kwin.desktops.length === 1 &&
       this.kwin.desktops[0] === workspace.currentDesktop &&
       this.kwin.output === output

@@ -1,4 +1,1 @@
-cf3f: Multi-desktop support
 2ed6: Multi-output support
-04c1: Disabled output improvements
-b43a: Minimum size improvements

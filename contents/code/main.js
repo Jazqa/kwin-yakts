@@ -16,6 +16,15 @@ var outputIndex = function (kwinOutput) {
     }
     return index;
 };
+var getLayoutId = function (kwinActivity, kwinDesktop, kwinOutput) {
+    return kwinActivity + (kwinDesktop === null || kwinDesktop === void 0 ? void 0 : kwinDesktop.id) + kwinOutput.serialNumber;
+};
+var getOutputLayoutId = function (kwinOutput) {
+    return getLayoutId(workspace.currentActivity, workspace.currentDesktop, kwinOutput);
+};
+var getWindowLayoutId = function (window) {
+    return getLayoutId(window.kwinActivities[0], window.kwinDesktops[0], window.kwinOutput);
+};
 
 var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
@@ -488,25 +497,62 @@ var Window = (function () {
         };
         this.outputChanged = function (force) {
             if (force || !_this.move) {
-                _this.callbacks.windowOutputChanged(_this, _this.kwinOutput, _this.kwin.output);
+                if (_this.enabled) {
+                    _this.callbacks.windowOutputChanged(_this, _this.kwinOutput, _this.kwin.output);
+                }
                 _this.kwinOutput = _this.kwin.output;
             }
         };
         this.desktopsChanged = function () {
-            _this.callbacks.windowDesktopsChanged(_this, _this.kwinDesktops, _this.kwin.desktops);
+            if (_this.kwinDesktops === _this.kwin.desktops)
+                return;
+            var oldLength = _this.kwinDesktops.length;
+            var newLength = _this.kwin.desktops.length;
+            if (_this.enabled && oldLength === 1 && newLength === 1) {
+                _this.callbacks.windowDesktopsChanged(_this, _this.kwinDesktops, _this.kwin.desktops);
+            }
+            if (oldLength === 1 && newLength !== 1) {
+                _this.disable();
+            }
             _this.kwinDesktops = _this.kwin.desktops;
+            if (oldLength !== 1 && newLength === 1) {
+                _this.enable(false, true);
+            }
         };
-        this.wasOnLayoutWith = function (window) {
-            return _this.kwinDesktop === window.kwinDesktop && _this.kwinOutput === window.kwinOutput;
+        this.activitiesChanged = function () {
+            if (_this.kwinActivities === _this.kwin.activities)
+                return;
+            var oldLength = _this.kwinActivities.length;
+            var newLength = _this.kwin.activities.length;
+            if (_this.enabled && oldLength === 1 && newLength === 1) {
+                _this.callbacks.windowActivitiesChanged(_this, _this.kwinActivities, _this.kwin.activities);
+            }
+            if (oldLength === 1 && newLength !== 1) {
+                _this.disable();
+            }
+            _this.kwinActivities = _this.kwin.activities;
+            if (oldLength !== 1 && newLength === 1) {
+                _this.enable(false, true);
+            }
         };
-        this.isOnLayoutWith = function (window) {
-            return (window.kwin.desktops.length === 1 &&
+        this.wasOnWindowLayout = function (window) {
+            return (_this.kwinActivities[0] === window.kwinActivities[0] &&
+                _this.kwinDesktops[0] === window.kwinDesktops[0] &&
+                _this.kwinOutput === window.kwinOutput);
+        };
+        this.isOnWindowLayout = function (window) {
+            return (window.kwin.activities.length === 1 &&
+                window.kwin.desktops.length === 1 &&
+                _this.kwin.activities.length === 1 &&
                 _this.kwin.desktops.length === 1 &&
+                _this.kwin.activities[0] === window.kwin.activities[0] &&
                 _this.kwin.desktops[0] === window.kwin.desktops[0] &&
                 _this.kwin.output === window.kwin.output);
         };
-        this.isOnOutput = function (output) {
-            return (_this.kwin.desktops.length === 1 &&
+        this.isOnOutputLayout = function (output) {
+            return (_this.kwin.activities.length === 1 &&
+                _this.kwin.activities[0] === workspace.currentActivity &&
+                _this.kwin.desktops.length === 1 &&
                 _this.kwin.desktops[0] === workspace.currentDesktop &&
                 _this.kwin.output === output);
         };
@@ -514,6 +560,7 @@ var Window = (function () {
         this.callbacks = callbacks;
         this.kwinOutput = kwin.output;
         this.kwinDesktops = kwin.desktops;
+        this.kwinActivities = kwin.activities;
         this.move = false;
         this.resize = false;
         this.disabled = !this.enabledByDefault;
@@ -524,28 +571,17 @@ var Window = (function () {
         this.kwin.maximizedChanged.connect(this.maximizedChanged);
         this.kwin.minimizedChanged.connect(this.minimizedChanged);
         this.kwin.fullScreenChanged.connect(this.fullScreenChanged);
+        this.kwin.activitiesChanged.connect(this.activitiesChanged);
         this.callbacks.windowAdded(this);
     }
-    Object.defineProperty(Window.prototype, "kwinDesktop", {
-        get: function () {
-            return this.kwinDesktops[0];
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(Window.prototype, "layoutId", {
-        get: function () {
-            return this.kwinDesktop.id + this.kwinOutput.serialNumber;
-        },
-        enumerable: false,
-        configurable: true
-    });
     Object.defineProperty(Window.prototype, "enabledByDefault", {
         get: function () {
             var _this = this;
             return (!this.kwin.minimized &&
                 !this.kwin.fullScreen &&
                 !this.isMaximized() &&
+                this.kwin.desktops.length === 1 &&
+                this.kwin.activities.length === 1 &&
                 this.kwin.frameGeometry.width >= config.minWidth &&
                 this.kwin.frameGeometry.height >= config.minHeight &&
                 config.auto[outputIndex(this.kwin.output)] &&
@@ -564,21 +600,23 @@ var YAKTS = (function () {
         var _this = this;
         this.layouts = new Map();
         this.windows = [];
-        this.addLayouts = function () {
+        this.addActivities = function () {
+            workspace.activities.forEach(function (kwinActivity) {
+                _this.addActivity(kwinActivity);
+            });
+        };
+        this.addActivity = function (kwinActivity) {
             workspace.desktops.forEach(function (kwinDesktop) {
                 workspace.screens.forEach(function (kwinOutput, kwinOutputIndex) {
                     var kcfgIndex = kwinOutputIndex >= 0 ? kwinOutputIndex : 0;
-                    _this.addLayout(kwinDesktop, kwinOutput, kcfgIndex);
+                    _this.addLayout(kwinActivity, kwinDesktop, kwinOutput, kcfgIndex);
                 });
             });
         };
-        this.addLayout = function (kwinDesktop, kwinOutput, kcfgIndex) {
+        this.addLayout = function (kwinActivity, kwinDesktop, kwinOutput, kcfgIndex) {
             var L = Layouts[config.layout[kcfgIndex]];
-            var margin = config.margin[kcfgIndex];
-            var rect = new Rect(maximizeArea(kwinOutput, kwinDesktop)).margin(margin);
-            var layout = new L(rect);
-            var id = kwinDesktop.id + kwinOutput.serialNumber;
-            _this.layouts.set(id, layout);
+            var rect = new Rect(maximizeArea(kwinOutput, kwinDesktop)).margin(config.margin[kcfgIndex]);
+            _this.layouts.set(getLayoutId(kwinActivity, kwinDesktop, kwinOutput), new L(rect));
         };
         this.addKwinWindow = function (kwinWindow) {
             if (_this.isKwinWindowAllowed(kwinWindow)) {
@@ -597,13 +635,13 @@ var YAKTS = (function () {
         };
         this.tileWindows = function (windowA) {
             if (windowA) {
-                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
-                _this.layouts.get(windowA.layoutId).tileWindows(windows);
+                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+                _this.layouts.get(getWindowLayoutId(windowA)).tileWindows(windows);
             }
             else {
                 workspace.screens.forEach(function (output) {
-                    var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnOutput(output); });
-                    _this.layouts.get(workspace.currentDesktop.id + output.serialNumber).tileWindows(windows);
+                    var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnOutputLayout(output); });
+                    _this.layouts.get(getOutputLayoutId(output)).tileWindows(windows);
                 });
             }
         };
@@ -621,68 +659,86 @@ var YAKTS = (function () {
         this.windowAdded = function (windowA) {
             _this.windows.push(windowA);
             if (windowA.enabled) {
-                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
+                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
                 var activeWindow = windows
                     .slice()
                     .sort(function (a, b) { return workspace.stackingOrder.indexOf(b.kwin) - workspace.stackingOrder.indexOf(a.kwin); })[1];
-                _this.layouts.get(windowA.layoutId).addWindow(windowA, windows, activeWindow);
+                _this.layouts.get(getWindowLayoutId(windowA)).addWindow(windowA, windows, activeWindow);
                 _this.tileWindows(windowA);
             }
         };
         this.windowRemoved = function (windowA) {
             if (windowA.enabled) {
-                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
-                _this.layouts.get(windowA.layoutId).removeWindow(windowA, windows);
+                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+                _this.layouts.get(getWindowLayoutId(windowA)).removeWindow(windowA, windows);
             }
             _this.windows.splice(_this.windows.indexOf(windowA), 1);
-            _this.tileWindows(windowA);
+            if (windowA.enabled)
+                _this.tileWindows(windowA);
         };
         this.windowEnabledChanged = function (windowA, manual, push) {
             if (push)
                 _this.pushWindow(windowA);
             if (windowA.enabled) {
-                var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
-                _this.layouts.get(windowA.layoutId).addWindow(windowA, windows);
+                _this.windowEnabled(windowA);
             }
             else {
-                var windows = _this.windows.filter(function (windowB) {
-                    if (windowB === windowA)
-                        return true;
-                    return windowB.enabled && windowB.isOnLayoutWith(windowA);
-                });
-                _this.layouts.get(windowA.layoutId).removeWindow(windowA, windows);
-                if (manual)
-                    workspace.activeWindow = windowA.kwin;
+                _this.windowDisabled(windowA, manual);
             }
             _this.tileWindows(windowA);
         };
+        this.windowEnabled = function (windowA) {
+            var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+            _this.layouts.get(getWindowLayoutId(windowA)).addWindow(windowA, windows);
+        };
+        this.windowDisabled = function (windowA, manual) {
+            var windows = _this.windows.filter(function (windowB) {
+                if (windowB === windowA)
+                    return true;
+                return windowB.enabled && windowB.wasOnWindowLayout(windowA);
+            });
+            _this.layouts.get(getWindowLayoutId(windowA)).removeWindow(windowA, windows);
+            if (manual)
+                workspace.activeWindow = windowA.kwin;
+        };
         this.windowOutputChanged = function (windowA, from, to) {
-            var fromWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnLayoutWith(windowA); });
+            var fromLayout = _this.layouts.get(getLayoutId(windowA.kwinActivities[0], windowA.kwinDesktops[0], from));
+            var fromWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+            fromLayout.removeWindow(windowA, fromWindows);
             _this.pushWindow(windowA);
-            var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
-            _this.layouts.get(windowA.kwinDesktop.id + from.serialNumber).removeWindow(windowA, fromWindows);
-            _this.layouts.get(windowA.kwinDesktop.id + to.serialNumber).addWindow(windowA, toWindows);
+            var toLayout = _this.layouts.get(getLayoutId(windowA.kwinActivities[0], windowA.kwinDesktops[0], to));
+            var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnWindowLayout(windowA); });
+            toLayout.addWindow(windowA, toWindows);
             _this.tileWindows();
         };
         this.windowDesktopsChanged = function (windowA, from, to) {
-            var fromWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnLayoutWith(windowA); });
+            var fromLayout = _this.layouts.get(getLayoutId(windowA.kwinActivities[0], from[0], windowA.kwinOutput));
+            var fromWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+            fromLayout.removeWindow(windowA, fromWindows);
             _this.pushWindow(windowA);
-            var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
-            if (from.length === 1) {
-                _this.layouts.get(from[0].id + windowA.kwinOutput.serialNumber).removeWindow(windowA, fromWindows);
-            }
-            if (to.length === 1) {
-                _this.layouts.get(to[0].id + windowA.kwinOutput.serialNumber).addWindow(windowA, toWindows);
-            }
-            _this.tileWindows();
+            var toLayout = _this.layouts.get(getLayoutId(windowA.kwinActivities[0], to[0], windowA.kwinOutput));
+            var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnWindowLayout(windowA); });
+            toLayout.addWindow(windowA, toWindows);
+            _this.tileWindows(windowA);
+        };
+        this.windowActivitiesChanged = function (windowA, from, to) {
+            var fromLayout = _this.layouts.get(getLayoutId(from[0], windowA.kwinDesktops[0], windowA.kwinOutput));
+            var fromWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+            fromLayout.removeWindow(windowA, fromWindows);
+            _this.pushWindow(windowA);
+            var toLayout = _this.layouts.get(getLayoutId(to[0], windowA.kwinDesktops[0], windowA.kwinOutput));
+            var toWindows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnWindowLayout(windowA); });
+            toLayout.addWindow(windowA, toWindows);
+            _this.tileWindows(windowA);
         };
         this.windowSizeChanged = function (windowA, oldRect) {
-            var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.isOnLayoutWith(windowA); });
-            _this.layouts.get(windowA.layoutId).resizeWindow(windowA, windows, oldRect);
+            var layout = _this.layouts.get(getWindowLayoutId(windowA));
+            var windows = _this.windows.filter(function (windowB) { return windowB.enabled && windowB.wasOnWindowLayout(windowA); });
+            layout.resizeWindow(windowA, windows, oldRect);
             _this.tileWindows(windowA);
         };
         this.windowPositionChanged = function (windowA, oldRect) {
-            var windows = _this.windows.filter(function (windowB) { return windowB !== windowA && windowB.isOnLayoutWith(windowA); });
+            var windows = _this.windows.filter(function (windowB) { return windowB !== windowA && windowB.wasOnWindowLayout(windowA); });
             var newRect = new Rect(windowA.kwin.frameGeometry);
             var nearestWindow = windowA;
             var nearestDistance = newRect.distance(oldRect);
@@ -703,6 +759,7 @@ var YAKTS = (function () {
             windowRemoved: this.windowRemoved,
             windowOutputChanged: this.windowOutputChanged,
             windowDesktopsChanged: this.windowDesktopsChanged,
+            windowActivitiesChanged: this.windowActivitiesChanged,
             windowEnabledChanged: this.windowEnabledChanged,
             windowPositionChanged: this.windowPositionChanged,
             windowSizeChanged: this.windowSizeChanged,
@@ -732,7 +789,8 @@ var YAKTS = (function () {
                 window.enable(true, true);
             }
         };
-        this.addLayouts();
+        this.addActivities();
+        workspace.activitiesChanged.connect(this.addActivity);
         workspace.stackingOrder.forEach(this.addKwinWindow);
         workspace.currentDesktopChanged.connect(function () { return _this.tileWindows(); });
         workspace.windowAdded.connect(this.addKwinWindow);

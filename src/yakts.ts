@@ -1,5 +1,5 @@
 import config from "./config";
-import { maximizeArea, outputIndex } from "./kwin";
+import { getLayoutId, getOutputLayoutId, getWindowLayoutId, maximizeArea, outputIndex } from "./kwin";
 import { Layouts } from "./layouts";
 import { Layout } from "./layouts/layout";
 import { Rect } from "./rect";
@@ -15,9 +15,12 @@ export class YAKTS {
   windows: Window[] = [];
 
   constructor() {
-    this.addLayouts();
+    this.addActivities();
+    workspace.activitiesChanged.connect(this.addActivity);
+
     workspace.stackingOrder.forEach(this.addKwinWindow);
     workspace.currentDesktopChanged.connect(() => this.tileWindows());
+
     workspace.windowAdded.connect(this.addKwinWindow);
     workspace.windowRemoved.connect(this.removeKwinWindow);
     // workspace.windowActivated.connect(this.activateKwinWindow);
@@ -27,13 +30,19 @@ export class YAKTS {
   }
 
   /**
-   * Calls {@link addLayout} for each existing {@link KWinDesktop} and {@link KWinOutput}.
+   * Calls {@link addLayout} for each existing KWinAcitivity, {@link KWinDesktop} and {@link KWinOutput}.
    */
-  addLayouts = () => {
+  addActivities = () => {
+    workspace.activities.forEach((kwinActivity) => {
+      this.addActivity(kwinActivity);
+    });
+  };
+
+  addActivity = (kwinActivity: string) => {
     workspace.desktops.forEach((kwinDesktop) => {
       workspace.screens.forEach((kwinOutput, kwinOutputIndex) => {
         const kcfgIndex = kwinOutputIndex >= 0 ? kwinOutputIndex : 0;
-        this.addLayout(kwinDesktop, kwinOutput, kcfgIndex);
+        this.addLayout(kwinActivity, kwinDesktop, kwinOutput, kcfgIndex);
       });
     });
   };
@@ -45,15 +54,10 @@ export class YAKTS {
    * @param kcfgIndex Index used for {@link Layout}'s {@link config} values
    * @mutates `this.layouts`
    */
-  addLayout = (kwinDesktop: KWinVirtualDesktop, kwinOutput: KWinOutput, kcfgIndex: number) => {
+  addLayout = (kwinActivity: string, kwinDesktop: KWinVirtualDesktop, kwinOutput: KWinOutput, kcfgIndex: number) => {
     const L = Layouts[config.layout[kcfgIndex]];
-    const margin = config.margin[kcfgIndex];
-
-    const rect = new Rect(maximizeArea(kwinOutput, kwinDesktop)).margin(margin);
-    const layout = new L(rect);
-
-    const id = kwinDesktop.id + kwinOutput.serialNumber;
-    this.layouts.set(id, layout);
+    const rect = new Rect(maximizeArea(kwinOutput, kwinDesktop)).margin(config.margin[kcfgIndex]);
+    this.layouts.set(getLayoutId(kwinActivity, kwinDesktop, kwinOutput), new L(rect));
   };
 
   /**
@@ -101,12 +105,12 @@ export class YAKTS {
    */
   tileWindows = (windowA?: Window) => {
     if (windowA) {
-      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
-      this.layouts.get(windowA.layoutId).tileWindows(windows);
+      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+      this.layouts.get(getWindowLayoutId(windowA)).tileWindows(windows);
     } else {
       workspace.screens.forEach((output) => {
-        const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnOutput(output));
-        this.layouts.get(workspace.currentDesktop.id + output.serialNumber).tileWindows(windows);
+        const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnOutputLayout(output));
+        this.layouts.get(getOutputLayoutId(output)).tileWindows(windows);
       });
     }
   };
@@ -149,13 +153,13 @@ export class YAKTS {
     this.windows.push(windowA);
 
     if (windowA.enabled) {
-      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
+      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
 
       const activeWindow = windows
         .slice()
         .sort((a, b) => workspace.stackingOrder.indexOf(b.kwin) - workspace.stackingOrder.indexOf(a.kwin))[1];
 
-      this.layouts.get(windowA.layoutId).addWindow(windowA, windows, activeWindow);
+      this.layouts.get(getWindowLayoutId(windowA)).addWindow(windowA, windows, activeWindow);
 
       this.tileWindows(windowA);
     }
@@ -163,14 +167,14 @@ export class YAKTS {
 
   windowRemoved = (windowA: Window) => {
     if (windowA.enabled) {
-      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
-      this.layouts.get(windowA.layoutId).removeWindow(windowA, windows);
+      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+      this.layouts.get(getWindowLayoutId(windowA)).removeWindow(windowA, windows);
     }
 
     // Note: `window` has to be part of this.windows, **splice last!**
     this.windows.splice(this.windows.indexOf(windowA), 1);
 
-    this.tileWindows(windowA);
+    if (windowA.enabled) this.tileWindows(windowA);
   };
 
   /**
@@ -184,52 +188,71 @@ export class YAKTS {
     if (push) this.pushWindow(windowA);
 
     if (windowA.enabled) {
-      const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
-      this.layouts.get(windowA.layoutId).addWindow(windowA, windows);
+      this.windowEnabled(windowA);
     } else {
-      const windows = this.windows.filter((windowB) => {
-        if (windowB === windowA) return true; // Special case for including the disabled window in the filter, so the layout can remove it
-        return windowB.enabled && windowB.isOnLayoutWith(windowA);
-      });
-
-      this.layouts.get(windowA.layoutId).removeWindow(windowA, windows);
-
-      // Activate manually enabled windows (otherwise they just disappear instantly under tiled ones)
-      if (manual) workspace.activeWindow = windowA.kwin;
+      this.windowDisabled(windowA, manual);
     }
 
     this.tileWindows(windowA);
   };
 
+  windowEnabled = (windowA: Window) => {
+    const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+    this.layouts.get(getWindowLayoutId(windowA)).addWindow(windowA, windows);
+  };
+
+  windowDisabled = (windowA: Window, manual: boolean) => {
+    const windows = this.windows.filter((windowB) => {
+      if (windowB === windowA) return true; // Special case for including the disabled window in the filter, so the layout can remove it
+      return windowB.enabled && windowB.wasOnWindowLayout(windowA);
+    });
+
+    this.layouts.get(getWindowLayoutId(windowA)).removeWindow(windowA, windows);
+
+    // Activate manually enabled windows (otherwise they just disappear instantly under tiled ones)
+    if (manual) workspace.activeWindow = windowA.kwin;
+  };
+
   windowOutputChanged = (windowA: Window, from: KWinOutput, to: KWinOutput) => {
-    const fromWindows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnLayoutWith(windowA));
+    const fromLayout = this.layouts.get(getLayoutId(windowA.kwinActivities[0], windowA.kwinDesktops[0], from));
+    const fromWindows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+    fromLayout.removeWindow(windowA, fromWindows);
 
     this.pushWindow(windowA);
 
-    const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
-
-    this.layouts.get(windowA.kwinDesktop.id + from.serialNumber).removeWindow(windowA, fromWindows);
-    this.layouts.get(windowA.kwinDesktop.id + to.serialNumber).addWindow(windowA, toWindows);
+    const toLayout = this.layouts.get(getLayoutId(windowA.kwinActivities[0], windowA.kwinDesktops[0], to));
+    const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnWindowLayout(windowA));
+    toLayout.addWindow(windowA, toWindows);
 
     this.tileWindows();
   };
 
   windowDesktopsChanged = (windowA: Window, from: KWinVirtualDesktop[], to: KWinVirtualDesktop[]) => {
-    const fromWindows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnLayoutWith(windowA));
+    const fromLayout = this.layouts.get(getLayoutId(windowA.kwinActivities[0], from[0], windowA.kwinOutput));
+    const fromWindows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+    fromLayout.removeWindow(windowA, fromWindows);
 
     this.pushWindow(windowA);
 
-    const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
+    const toLayout = this.layouts.get(getLayoutId(windowA.kwinActivities[0], to[0], windowA.kwinOutput));
+    const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnWindowLayout(windowA));
+    toLayout.addWindow(windowA, toWindows);
 
-    if (from.length === 1) {
-      this.layouts.get(from[0].id + windowA.kwinOutput.serialNumber).removeWindow(windowA, fromWindows);
-    }
+    this.tileWindows(windowA);
+  };
 
-    if (to.length === 1) {
-      this.layouts.get(to[0].id + windowA.kwinOutput.serialNumber).addWindow(windowA, toWindows);
-    }
+  windowActivitiesChanged = (windowA: Window, from: string[], to: string[]) => {
+    const fromLayout = this.layouts.get(getLayoutId(from[0], windowA.kwinDesktops[0], windowA.kwinOutput));
+    const fromWindows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+    fromLayout.removeWindow(windowA, fromWindows);
 
-    this.tileWindows();
+    this.pushWindow(windowA);
+
+    const toLayout = this.layouts.get(getLayoutId(to[0], windowA.kwinDesktops[0], windowA.kwinOutput));
+    const toWindows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnWindowLayout(windowA));
+    toLayout.addWindow(windowA, toWindows);
+
+    this.tileWindows(windowA);
   };
 
   /**
@@ -239,9 +262,9 @@ export class YAKTS {
    * @param oldRect {@link QRect} before the size changed
    */
   windowSizeChanged = (windowA: Window, oldRect: QRect) => {
-    const windows = this.windows.filter((windowB) => windowB.enabled && windowB.isOnLayoutWith(windowA));
-
-    this.layouts.get(windowA.layoutId).resizeWindow(windowA, windows, oldRect);
+    const layout = this.layouts.get(getWindowLayoutId(windowA));
+    const windows = this.windows.filter((windowB) => windowB.enabled && windowB.wasOnWindowLayout(windowA));
+    layout.resizeWindow(windowA, windows, oldRect);
 
     this.tileWindows(windowA);
   };
@@ -255,7 +278,7 @@ export class YAKTS {
    * @mutates `this.windows`
    */
   windowPositionChanged = (windowA: Window, oldRect: QRect) => {
-    const windows = this.windows.filter((windowB) => windowB !== windowA && windowB.isOnLayoutWith(windowA));
+    const windows = this.windows.filter((windowB) => windowB !== windowA && windowB.wasOnWindowLayout(windowA));
 
     const newRect = new Rect(windowA.kwin.frameGeometry);
 
@@ -283,6 +306,7 @@ export class YAKTS {
     windowRemoved: this.windowRemoved,
     windowOutputChanged: this.windowOutputChanged,
     windowDesktopsChanged: this.windowDesktopsChanged,
+    windowActivitiesChanged: this.windowActivitiesChanged,
     windowEnabledChanged: this.windowEnabledChanged,
     windowPositionChanged: this.windowPositionChanged,
     windowSizeChanged: this.windowSizeChanged,

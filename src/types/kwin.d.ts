@@ -1,19 +1,24 @@
 import { QPoint, QRect, QSize } from "./qt";
 
 export interface KWinWorkspaceWrapper {
-  readonly activities: Array<string>;
+  readonly activities: string[];
+  currentActivity: string;
 
-  readonly desktops: Array<KWinVirtualDesktop>;
+  readonly desktops: KWinVirtualDesktop[];
   currentDesktop: KWinVirtualDesktop;
 
-  readonly screens: Array<KWinOutput>;
+  readonly screens: KWinOutput[];
   readonly activeScreen: KWinOutput;
 
-  readonly stackingOrder: Array<KWinWindow>;
+  readonly stackingOrder: KWinWindow[];
   activeWindow: KWinWindow;
 
   clientArea: (option: 2, output: KWinOutput, desktop: KWinVirtualDesktop) => QRect;
 
+  activitiesChanged: {
+    connect: (cb: (newActivity: string) => void) => void;
+    disconnect: (cb: (newActivity: string) => void) => void;
+  };
   currentDesktopChanged: {
     connect: (cb: (oldDesktop: KWinVirtualDesktop) => void) => void;
     disconnect: (cb: (oldDesktop: KWinVirtualDesktop) => void) => void;
@@ -36,6 +41,7 @@ export interface KWinWorkspaceWrapper {
 export interface KWinOutput {
   geometry: QRect;
   serialNumber: string;
+  manufacturer: string;
 }
 
 export interface KWinVirtualDesktop {
@@ -50,8 +56,9 @@ export interface KWinWindow {
   readonly size: QSize;
   readonly rect: QRect;
 
+  activities: string[];
+  desktops: KWinVirtualDesktop[];
   readonly output: KWinOutput;
-  desktops: Array<KWinVirtualDesktop>;
 
   readonly resourceName: string;
   readonly resourceClass: string;
@@ -76,6 +83,10 @@ export interface KWinWindow {
 
   frameGeometry: QRect;
 
+  activitiesChanged: {
+    connect: (cb: () => void) => void;
+    disconnect: (cb: () => void) => void;
+  };
   desktopsChanged: {
     connect: (cb: () => void) => void;
     disconnect: (cb: () => void) => void;
